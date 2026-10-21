@@ -1,0 +1,36 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="256dp"
+    android:height="256dp"
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+    <!-- Background Circle -->
+    <path
+        android:pathData="M128,8 C61.73,8 8,61.73 8,128 C8,194.27 61.73,248 128,248 C194.27,248 248,194.27 248,128 C248,61.73 194.27,8 128,8 Z"
+        android:fillColor="#FF181329" />
+
+    <!-- Outer Neon Ring -->
+    <path
+        android:pathData="M128,24 C70.56,24 24,70.56 24,128 C24,185.44 70.56,232 128,232 C185.44,232 232,185.44 232,128 C232,70.56 185.44,24 128,24 Z"
+        android:strokeWidth="1.5"
+        android:strokeColor="#40A855F7" />
+
+    <!-- Vinyl Grooves -->
+    <path
+        android:pathData="M128,48 C83.82,48 48,83.82 48,128 C48,172.18 83.82,208 128,208 C172.18,208 208,172.18 208,128 C208,83.82 172.18,48 128,48 Z"
+        android:strokeWidth="1.2"
+        android:strokeColor="#18FFFFFF" />
+    <path
+        android:pathData="M128,72 C97.07,72 72,97.07 72,128 C72,158.93 97.07,184 128,184 C158.93,184 184,158.93 184,128 C184,97.07 158.93,72 128,72 Z"
+        android:strokeWidth="1"
+        android:strokeColor="#30A855F7" />
+
+    <!-- Center Label Disc -->
+    <path
+        android:pathData="M128,96 C110.33,96 96,110.33 96,128 C96,145.67 110.33,160 128,160 C145.67,160 160,145.67 160,128 C160,110.33 145.67,96 128,96 Z"
+        android:fillColor="#FFA855F7" />
+
+    <!-- Center Spindle Hole -->
+    <path
+        android:pathData="M128,120 C123.58,120 120,123.58 120,128 C120,132.42 123.58,136 128,136 C132.42,136 136,132.42 136,128 C136,123.58 132.42,120 128,120 Z"
+        android:fillColor="#FF080414" />
+</vector>

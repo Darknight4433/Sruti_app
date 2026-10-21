@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "142364649594",
+    "project_id": "sruti-53024",
+    "storage_bucket": "sruti-53024.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:142364649594:android:976b4bfa50f1f9b46f33c3",
+        "android_client_info": {
+          "package_name": "com.sruti.music"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxL3DNWz1wMpGdaptj05HVTkW3YRf3Dp0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
