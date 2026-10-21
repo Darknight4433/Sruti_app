@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,10 +42,11 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun AccountProfileDialog(
-    userProfile: UserProfile,
+    userProfile: UserProfile = UserProfile(),
     deviceTracksCount: Int = 0,
     favoriteTracksCount: Int = 0,
     playlistsCount: Int = 0,
+    onOpenSettings: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -444,7 +446,58 @@ fun AccountProfileDialog(
                         StatCard(label = "Playlists", value = "$playlistsCount", modifier = Modifier.weight(1f))
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    if (onOpenSettings != null) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0x25BA2DF7))
+                                .border(1.dp, NeonPurple.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+                                .clickable {
+                                    onDismiss()
+                                    onOpenSettings()
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Tune,
+                                        contentDescription = "Appearance",
+                                        tint = NeonPurple,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = "Appearance & Background",
+                                            color = Color.White,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            text = "Adaptive thumbnail, styles & themes",
+                                            color = GlassWhite.copy(alpha = 0.70f),
+                                            fontSize = 11.5.sp
+                                        )
+                                    }
+                                }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                                    contentDescription = null,
+                                    tint = GlassWhite.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     // Sign Out Action Button
                     Button(

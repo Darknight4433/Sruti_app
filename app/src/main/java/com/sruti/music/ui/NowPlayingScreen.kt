@@ -41,6 +41,7 @@ import com.sruti.music.playback.AudioOutputManager
 import com.sruti.music.playback.PlaybackStateManager
 import com.sruti.music.playback.RepeatState
 import com.sruti.music.theme.GlassWhite
+import com.sruti.music.theme.LocalDynamicTheme
 import com.sruti.music.theme.NeonPurple
 
 @Composable
@@ -50,6 +51,7 @@ fun NowPlayingScreen(
 ) {
     val state by PlaybackStateManager.state.collectAsState()
     val context = LocalContext.current
+    val dynamicTheme = LocalDynamicTheme.current
     val audioOutputManager = remember { AudioOutputManager(context) }
     val audioOutputState by audioOutputManager.state.collectAsState()
     val downloadManager = remember { com.sruti.music.online.SrutiDownloadManager.getInstance(context) }
@@ -101,7 +103,7 @@ fun NowPlayingScreen(
             GlassCircleButton(
                 icon = if (state.isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 contentDescription = "Favorite",
-                tint = if (state.isLiked) Color(0xFFFF2A85) else Color.White,
+                tint = if (state.isLiked) dynamicTheme.primary else Color.White,
                 onClick = { PlaybackStateManager.toggleLike() }
             )
         }
@@ -120,7 +122,7 @@ fun NowPlayingScreen(
                     .aspectRatio(1f),
                 contentAlignment = Alignment.Center
             ) {
-                // Ambient glow behind artwork
+                // Ambient glow behind artwork adapting to song palette
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -128,8 +130,8 @@ fun NowPlayingScreen(
                         .background(
                             brush = Brush.radialGradient(
                                 colors = listOf(
-                                    Color(0x60BA2DF7),
-                                    Color(0x20BA2DF7),
+                                    dynamicTheme.primary.copy(alpha = 0.55f),
+                                    dynamicTheme.secondary.copy(alpha = 0.25f),
                                     Color.Transparent
                                 )
                             )
@@ -204,7 +206,8 @@ fun NowPlayingScreen(
                 val newSeconds = (fraction * state.totalDurationSeconds).toInt()
                 PlaybackStateManager.seekTo(newSeconds)
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            playedColor = dynamicTheme.primary
         )
 
         Spacer(modifier = Modifier.height(6.dp))
@@ -257,7 +260,7 @@ fun NowPlayingScreen(
                     Icon(
                         imageVector = getRouteIcon(audioOutputState.currentRoute.type),
                         contentDescription = "Output Route",
-                        tint = NeonPurple,
+                        tint = dynamicTheme.accent,
                         modifier = Modifier.size(13.dp)
                     )
                     Spacer(modifier = Modifier.width(3.dp))
@@ -281,8 +284,8 @@ fun NowPlayingScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isDownloaded) Color(0x35BA2DF7) else Color(0x18FFFFFF))
-                    .border(1.dp, if (isDownloaded) NeonPurple else Color(0x30FFFFFF), RoundedCornerShape(10.dp))
+                    .background(if (isDownloaded) dynamicTheme.primary.copy(alpha = 0.22f) else Color(0x18FFFFFF))
+                    .border(1.dp, if (isDownloaded) dynamicTheme.primary else Color(0x30FFFFFF), RoundedCornerShape(10.dp))
                     .clickable {
                         when {
                             isDownloaded -> {
@@ -314,14 +317,14 @@ fun NowPlayingScreen(
                 ) {
                     if (downloadRecord?.status == com.sruti.music.online.DownloadStatus.DOWNLOADING) {
                         CircularProgressIndicator(
-                            color = NeonPurple,
+                            color = dynamicTheme.primary,
                             modifier = Modifier.size(11.dp),
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(3.dp))
                         Text(
                             text = "${(downloadRecord.progress * 100).toInt()}%",
-                            color = NeonPurple,
+                            color = dynamicTheme.primary,
                             fontSize = 10.5.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
@@ -330,13 +333,13 @@ fun NowPlayingScreen(
                         Icon(
                             imageVector = Icons.Rounded.CheckCircle,
                             contentDescription = "Downloaded",
-                            tint = NeonPurple,
+                            tint = dynamicTheme.primary,
                             modifier = Modifier.size(13.dp)
                         )
                         Spacer(modifier = Modifier.width(3.dp))
                         Text(
                             text = "Offline",
-                            color = NeonPurple,
+                            color = dynamicTheme.primary,
                             fontSize = 10.5.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1
@@ -397,10 +400,10 @@ fun NowPlayingScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (state.isSmartShuffleEnabled) Color(0x35BA2DF7) else Color(0x18FFFFFF))
+                    .background(if (state.isSmartShuffleEnabled) dynamicTheme.primary.copy(alpha = 0.22f) else Color(0x18FFFFFF))
                     .border(
                         1.dp,
-                        if (state.isSmartShuffleEnabled) NeonPurple else Color(0x30FFFFFF),
+                        if (state.isSmartShuffleEnabled) dynamicTheme.primary else Color(0x30FFFFFF),
                         RoundedCornerShape(10.dp)
                     )
                     .clickable { showQueueSheet = true }
@@ -414,7 +417,7 @@ fun NowPlayingScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
                         contentDescription = "Queue",
-                        tint = if (state.isSmartShuffleEnabled) NeonPurple else Color.White,
+                        tint = if (state.isSmartShuffleEnabled) dynamicTheme.primary else Color.White,
                         modifier = Modifier.size(13.dp)
                     )
                     Spacer(modifier = Modifier.width(3.dp))
@@ -442,7 +445,7 @@ fun NowPlayingScreen(
                 Icon(
                     imageVector = Icons.Rounded.Shuffle,
                     contentDescription = "Shuffle",
-                    tint = if (state.isShuffleEnabled) NeonPurple else GlassWhite.copy(alpha = 0.85f),
+                    tint = if (state.isShuffleEnabled) dynamicTheme.primary else GlassWhite.copy(alpha = 0.85f),
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -457,7 +460,7 @@ fun NowPlayingScreen(
                 )
             }
 
-            // Translucent Frosted Glass Play/Pause Button with Theme Accent
+            // Translucent Frosted Glass Play/Pause Button with Dynamic Theme Accent
             Box(
                 modifier = Modifier
                     .size(66.dp)
@@ -465,7 +468,7 @@ fun NowPlayingScreen(
                     .background(
                         brush = Brush.radialGradient(
                             listOf(
-                                NeonPurple.copy(alpha = 0.40f),
+                                dynamicTheme.primary.copy(alpha = 0.45f),
                                 Color(0x28FFFFFF)
                             )
                         )
@@ -474,7 +477,7 @@ fun NowPlayingScreen(
                         width = 1.5.dp,
                         brush = Brush.linearGradient(
                             listOf(
-                                NeonPurple.copy(alpha = 0.85f),
+                                dynamicTheme.primary.copy(alpha = 0.85f),
                                 Color(0x40FFFFFF)
                             )
                         ),
@@ -510,7 +513,7 @@ fun NowPlayingScreen(
                         RepeatState.OFF -> Icons.Rounded.Repeat
                     },
                     contentDescription = "Repeat",
-                    tint = if (state.repeatState != RepeatState.OFF) NeonPurple else GlassWhite.copy(alpha = 0.85f),
+                    tint = if (state.repeatState != RepeatState.OFF) dynamicTheme.primary else GlassWhite.copy(alpha = 0.85f),
                     modifier = Modifier.size(24.dp)
                 )
             }

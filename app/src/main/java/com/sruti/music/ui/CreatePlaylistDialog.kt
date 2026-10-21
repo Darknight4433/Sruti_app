@@ -31,6 +31,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.sruti.music.data.db.PlaylistEntity
 import com.sruti.music.data.db.SrutiDatabase
 import com.sruti.music.theme.GlassWhite
+import com.sruti.music.theme.LocalDynamicTheme
 import com.sruti.music.theme.NeonPurple
 import kotlinx.coroutines.launch
 
@@ -42,6 +43,7 @@ fun CreatePlaylistDialog(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val database = remember { SrutiDatabase.getDatabase(context) }
+    val dynamicTheme = LocalDynamicTheme.current
 
     var playlistName by remember { mutableStateOf("") }
     var selectedArtworkUri by remember { mutableStateOf<Uri?>(null) }
@@ -79,7 +81,7 @@ fun CreatePlaylistDialog(
                         Icon(
                             imageVector = Icons.Rounded.PlaylistAdd,
                             contentDescription = null,
-                            tint = NeonPurple,
+                            tint = dynamicTheme.primary,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -129,7 +131,7 @@ fun CreatePlaylistDialog(
                             Icon(
                                 imageVector = Icons.Rounded.AddPhotoAlternate,
                                 contentDescription = "Add Artwork",
-                                tint = NeonPurple,
+                                tint = dynamicTheme.primary,
                                 modifier = Modifier.size(34.dp)
                             )
                             Spacer(modifier = Modifier.height(4.dp))
@@ -159,7 +161,7 @@ fun CreatePlaylistDialog(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
-                        focusedBorderColor = NeonPurple,
+                        focusedBorderColor = dynamicTheme.primary,
                         unfocusedBorderColor = Color(0x35FFFFFF)
                     )
                 )
@@ -200,7 +202,7 @@ fun CreatePlaylistDialog(
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
+                    colors = ButtonDefaults.buttonColors(containerColor = dynamicTheme.primary),
                     shape = RoundedCornerShape(14.dp),
                     enabled = !isSubmitting,
                     modifier = Modifier

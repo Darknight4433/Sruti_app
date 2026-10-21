@@ -3,21 +3,43 @@ package com.sruti.music.theme
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.Shader
+import android.graphics.drawable.BitmapDrawable
+import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
+import android.util.Log
+import android.util.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.palette.graphics.Palette
+import coil.Coil
+import coil.request.ImageRequest
+import coil.request.SuccessResult
+import com.sruti.music.R
 import com.sruti.music.data.Track
+import com.sruti.music.data.db.SrutiDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+
+private const val TAG = "DynamicBackgroundMgr"
 
 data class DynamicArtworkPalette(
-    val primaryColor: Color = Color(0xFF9E4ECB),
-    val secondaryColor: Color = Color(0xFF381F6D),
-    val accentColor: Color = Color(0xFF4169F5),
-    val darkBaseColor: Color = Color(0xFF0A0715)
+    val primaryColor: Color = Color(0xFFA855F7),     // Radiant primary accent
+    val secondaryColor: Color = Color(0xFF381F6D),   // Rich secondary ambient
+    val accentColor: Color = Color(0xFF38BDF8),      // Luminous highlight accent
+    val darkBaseColor: Color = Color(0xFF0A0715)     // Deep obsidian floor
 )
 
 data class DynamicArtworkData(
@@ -29,6 +51,15 @@ data class DynamicArtworkData(
 object DynamicBackgroundManager {
 
     private val dataCache = ConcurrentHashMap<String, DynamicArtworkData>()
+
+    private val okHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+    }
 
     val defaultPalette = DynamicArtworkPalette()
     val defaultArtworkData = DynamicArtworkData(
@@ -45,49 +76,60 @@ object DynamicBackgroundManager {
         val cacheKey = "${track.id}_$intensity"
         dataCache[cacheKey]?.let { return@withContext it }
 
+        Log.d(TAG, "extractDataForTrack: Starting extraction for track '${track.title}' (id='${track.id}')")
+
+        // 1. Multi-strategy bitmap loading
         val rawBitmap = loadTrackArtworkBitmap(context, track)
-            ?: return@withContext defaultArtworkData.copy(trackId = track.id)
+
+        // 2. If no artwork bitmap exists, generate a deterministic harmonic aura bitmap
+        val effectiveBitmap = rawBitmap ?: generateHarmonicAuraBitmap(track)
 
         try {
-            // 1. Extract Color Palette using AndroidX Palette
-            val palette = Palette.from(rawBitmap)
-                .maximumColorCount(16)
+            // 3. Extract Color Palette using AndroidX Palette
+            val palette = Palette.from(effectiveBitmap)
+                .maximumColorCount(24)
                 .generate()
 
-            val dominant = palette.getDominantColor(0xFF6E2EA3.toInt())
-            val vibrant = palette.getVibrantColor(palette.getDominantColor(0xFF9E4ECB.toInt()))
+            val dominant = palette.getDominantColor(0xFFA855F7.toInt())
+            val vibrant = palette.getVibrantColor(dominant)
+            val lightVibrant = palette.getLightVibrantColor(vibrant)
             val darkVibrant = palette.getDarkVibrantColor(0xFF381F6D.toInt())
-            val muted = palette.getMutedColor(0xFF1B2366.toInt())
+            val muted = palette.getMutedColor(dominant)
 
-            val (primaryFactor, secondaryFactor) = when (intensity) {
-                "subtle" -> Pair(0.20f, 0.15f)
-                "immersive" -> Pair(0.55f, 0.40f)
-                else -> Pair(0.38f, 0.28f) // "balanced" default
+            // Select a radiant, high-energy primary accent for UI controls
+            val primaryRaw = if (isColorBrightEnough(vibrant)) vibrant else lightVibrant
+            val primaryColor = Color(primaryRaw)
+
+            // Ambient background blend factors based on user intensity preference
+            val (secondaryFactor, darkFactor) = when (intensity) {
+                "subtle" -> Pair(0.35f, 0.90f)
+                "immersive" -> Pair(0.70f, 0.70f)
+                else -> Pair(0.50f, 0.80f) // "balanced" default
             }
 
             val midnight = Color(0xFF0A0715)
-
-            val primary = blendWithMidnight(Color(vibrant), midnight, primaryFactor)
-            val secondary = blendWithMidnight(Color(darkVibrant), midnight, secondaryFactor)
-            val accent = blendWithMidnight(Color(dominant), midnight, primaryFactor * 0.85f)
-            val darkBase = Color(0xFF080612)
+            val secondaryColor = blendWithMidnight(Color(darkVibrant), midnight, secondaryFactor)
+            val accentColor = Color(if (dominant != vibrant) dominant else lightVibrant)
+            val darkBaseColor = blendWithMidnight(Color(darkVibrant), Color(0xFF05030A), 0.25f)
 
             val dynamicPalette = DynamicArtworkPalette(
-                primaryColor = primary,
-                secondaryColor = secondary,
-                accentColor = accent,
-                darkBaseColor = darkBase
+                primaryColor = primaryColor,
+                secondaryColor = secondaryColor,
+                accentColor = accentColor,
+                darkBaseColor = darkBaseColor
             )
 
-            // 2. Generate a heavily blurred softened backdrop
-            // Downscale to 48x48 for ultra-fast, memory-efficient blur (<1ms)
+            // 4. Generate heavily blurred, silky smooth backdrop
+            // Downscale to 128x128 and perform a 2-pass fast box blur for ultra-smooth gradients
             val blurredImageBitmap = try {
-                val tinyWidth = 48
-                val tinyHeight = (48f * rawBitmap.height / rawBitmap.width).toInt().coerceAtLeast(1)
-                val scaled = Bitmap.createScaledBitmap(rawBitmap, tinyWidth, tinyHeight, true)
-                val blurred = fastBoxBlur(scaled, radius = 6)
-                blurred.asImageBitmap()
-            } catch (_: Exception) {
+                val targetSize = 128
+                val scaledHeight = (targetSize.toFloat() * effectiveBitmap.height / effectiveBitmap.width).toInt().coerceAtLeast(1)
+                val scaled = Bitmap.createScaledBitmap(effectiveBitmap, targetSize, scaledHeight, true)
+                val blurPass1 = fastBoxBlur(scaled, radius = 12)
+                val blurPass2 = fastBoxBlur(blurPass1, radius = 10)
+                blurPass2.asImageBitmap()
+            } catch (e: Exception) {
+                Log.w(TAG, "Blur processing failed: ${e.message}")
                 null
             }
 
@@ -98,11 +140,21 @@ object DynamicBackgroundManager {
             )
 
             dataCache[cacheKey] = result
+            Log.d(TAG, "extractDataForTrack: Successfully cached dynamic background for '${track.title}'")
             result
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "extractDataForTrack: Error generating palette for track '${track.title}'", e)
             defaultArtworkData.copy(trackId = track.id)
         }
+    }
+
+    private fun isColorBrightEnough(colorInt: Int): Boolean {
+        val r = (colorInt shr 16) and 0xFF
+        val g = (colorInt shr 8) and 0xFF
+        val b = colorInt and 0xFF
+        // Perceived luminance formula (ITU-R BT.601)
+        val luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+        return luminance >= 0.28
     }
 
     private fun blendWithMidnight(color: Color, midnight: Color, factor: Float): Color {
@@ -112,27 +164,270 @@ object DynamicBackgroundManager {
         return Color(r, g, b, 1f)
     }
 
-    private fun loadTrackArtworkBitmap(context: Context, track: Track): Bitmap? {
-        return try {
-            if (track.artworkUriString != null) {
-                val uri = Uri.parse(track.artworkUriString)
-                context.contentResolver.openInputStream(uri)?.use { stream ->
+    private suspend fun loadTrackArtworkBitmap(context: Context, track: Track): Bitmap? {
+        val uriStr = track.artworkUriString
+        Log.d(TAG, "loadTrackArtworkBitmap: Track '${track.title}' artworkUri='$uriStr', mediaUri='${track.mediaUriString}'")
+
+        // Strategy 1: Coil Singleton Loader for HTTP/HTTPS/Content
+        if (!uriStr.isNullOrBlank()) {
+            val coilBitmap = tryLoadWithCoil(context, uriStr)
+            if (coilBitmap != null) {
+                Log.d(TAG, "Strategy 1 (Coil) loaded artwork for '${track.title}'")
+                return coilBitmap
+            }
+        }
+
+        // Strategy 2: Direct OkHttp Download for HTTP/HTTPS
+        if (!uriStr.isNullOrBlank() && (uriStr.startsWith("http://") || uriStr.startsWith("https://"))) {
+            val directBitmap = tryDownloadImageBytes(uriStr)
+            if (directBitmap != null) {
+                Log.d(TAG, "Strategy 2 (Direct OkHttp) downloaded artwork for '${track.title}'")
+                return directBitmap
+            }
+        }
+
+        // Strategy 3: Check Room Database for Completed Downloads
+        try {
+            val database = SrutiDatabase.getDatabase(context)
+            val download = database.musicDao().getDownloadByTrackId(track.id)
+                ?: if (track.title.isNotBlank()) database.musicDao().findDownloadByTitle(track.title.trim()) else null
+            if (download != null) {
+                if (!download.artworkUriString.isNullOrBlank()) {
+                    val dlArt = tryLoadWithCoil(context, download.artworkUriString) ?: tryDownloadImageBytes(download.artworkUriString)
+                    if (dlArt != null) {
+                        Log.d(TAG, "Strategy 3 (Room download artwork URL) loaded art for '${track.title}'")
+                        return dlArt
+                    }
+                }
+                if (!download.localFilePath.isNullOrBlank()) {
+                    val localFile = File(download.localFilePath)
+                    if (localFile.exists()) {
+                        val fileArt = extractEmbeddedPicture(localFile.absolutePath)
+                        if (fileArt != null) {
+                            Log.d(TAG, "Strategy 3 (Room download local file) extracted art for '${track.title}'")
+                            return fileArt
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Strategy 3 Database query warning: ${e.message}")
+        }
+
+        // Strategy 4: Local File Path in mediaUriString
+        val mediaUri = track.mediaUriString
+        if (!mediaUri.isNullOrBlank()) {
+            if (mediaUri.startsWith("/") || mediaUri.startsWith("file://")) {
+                val cleanPath = if (mediaUri.startsWith("file://")) Uri.parse(mediaUri).path ?: mediaUri.removePrefix("file://") else mediaUri
+                val embedded = extractEmbeddedPicture(cleanPath)
+                if (embedded != null) {
+                    Log.d(TAG, "Strategy 4 (Local file embedded picture) succeeded for '${track.title}'")
+                    return embedded
+                }
+            }
+        }
+
+        // Strategy 5: Android 10+ (API 29+) MediaStore loadThumbnail
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !mediaUri.isNullOrBlank() && mediaUri.startsWith("content://")) {
+            try {
+                val contentUri = Uri.parse(mediaUri)
+                val thumb = context.contentResolver.loadThumbnail(contentUri, Size(512, 512), null)
+                if (thumb != null) {
+                    Log.d(TAG, "Strategy 5 (ContentResolver loadThumbnail) succeeded for '${track.title}'")
+                    return thumb
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "Strategy 5 loadThumbnail error: ${e.message}")
+            }
+        }
+
+        // Strategy 6: MediaMetadataRetriever via Context and Uri
+        if (!mediaUri.isNullOrBlank()) {
+            val embedded = extractEmbeddedPictureFromUri(context, mediaUri)
+            if (embedded != null) {
+                Log.d(TAG, "Strategy 6 (MMR from mediaUri) succeeded for '${track.title}'")
+                return embedded
+            }
+        }
+
+        // Strategy 7: ContentResolver openInputStream on artworkUriString
+        if (!uriStr.isNullOrBlank() && uriStr.startsWith("content://")) {
+            try {
+                context.contentResolver.openInputStream(Uri.parse(uriStr))?.use { stream ->
                     val options = BitmapFactory.Options().apply {
-                        inSampleSize = 4 // Downsample for memory safety
+                        inSampleSize = 2
                         inPreferredConfig = Bitmap.Config.RGB_565
                     }
-                    BitmapFactory.decodeStream(stream, null, options)
+                    val bm = BitmapFactory.decodeStream(stream, null, options)
+                    if (bm != null) {
+                        Log.d(TAG, "Strategy 7 (ContentResolver openInputStream) succeeded for '${track.title}'")
+                        return bm
+                    }
                 }
-            } else if (track.artworkResId != 0) {
+            } catch (e: Exception) {
+                Log.d(TAG, "Strategy 7 openInputStream error: ${e.message}")
+            }
+        }
+
+        // Strategy 8: Resource Drawable Fallback
+        if (track.artworkResId != 0 && track.artworkResId != R.drawable.sruti_artwork_fallback) {
+            try {
                 val options = BitmapFactory.Options().apply {
-                    inSampleSize = 4
+                    inSampleSize = 2
                     inPreferredConfig = Bitmap.Config.RGB_565
                 }
-                BitmapFactory.decodeResource(context.resources, track.artworkResId, options)
-            } else null
-        } catch (_: Exception) {
+                val bm = BitmapFactory.decodeResource(context.resources, track.artworkResId, options)
+                if (bm != null) return bm
+            } catch (_: Exception) {}
+        }
+
+        Log.w(TAG, "loadTrackArtworkBitmap: No physical artwork found for '${track.title}'. Will generate harmonic aura.")
+        return null
+    }
+
+    private suspend fun tryLoadWithCoil(context: Context, uriString: String): Bitmap? {
+        return try {
+            val loader = Coil.imageLoader(context)
+            val request = ImageRequest.Builder(context)
+                .data(uriString)
+                .size(320, 320)
+                .allowHardware(false)
+                .build()
+            val result = loader.execute(request)
+            if (result is SuccessResult) {
+                val drawable = result.drawable
+                if (drawable is BitmapDrawable) {
+                    drawable.bitmap
+                } else {
+                    val bitmap = Bitmap.createBitmap(
+                        drawable.intrinsicWidth.coerceAtLeast(1),
+                        drawable.intrinsicHeight.coerceAtLeast(1),
+                        Bitmap.Config.ARGB_8888
+                    )
+                    val canvas = Canvas(bitmap)
+                    drawable.setBounds(0, 0, canvas.width, canvas.height)
+                    drawable.draw(canvas)
+                    bitmap
+                }
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "tryLoadWithCoil error: ${e.message}")
             null
         }
+    }
+
+    private fun tryDownloadImageBytes(url: String): Bitmap? {
+        return try {
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+                .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+                .build()
+            val response = okHttpClient.newCall(request).execute()
+            if (response.isSuccessful) {
+                val bytes = response.body?.bytes()
+                if (bytes != null && bytes.isNotEmpty()) {
+                    val options = BitmapFactory.Options().apply {
+                        inPreferredConfig = Bitmap.Config.RGB_565
+                    }
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                } else null
+            } else null
+        } catch (e: Exception) {
+            Log.d(TAG, "tryDownloadImageBytes error: ${e.message}")
+            null
+        }
+    }
+
+    private fun extractEmbeddedPicture(filePath: String): Bitmap? {
+        val mmr = MediaMetadataRetriever()
+        return try {
+            mmr.setDataSource(filePath)
+            val bytes = mmr.embeddedPicture
+            if (bytes != null && bytes.isNotEmpty()) {
+                val options = BitmapFactory.Options().apply {
+                    inPreferredConfig = Bitmap.Config.RGB_565
+                }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+            } else null
+        } catch (e: Exception) {
+            Log.d(TAG, "extractEmbeddedPicture error on '$filePath': ${e.message}")
+            null
+        } finally {
+            runCatching { mmr.release() }
+        }
+    }
+
+    private fun extractEmbeddedPictureFromUri(context: Context, uriString: String): Bitmap? {
+        val mmr = MediaMetadataRetriever()
+        return try {
+            val uri = Uri.parse(uriString)
+            if (uriString.startsWith("content://")) {
+                mmr.setDataSource(context, uri)
+            } else {
+                mmr.setDataSource(uriString)
+            }
+            val bytes = mmr.embeddedPicture
+            if (bytes != null && bytes.isNotEmpty()) {
+                val options = BitmapFactory.Options().apply {
+                    inPreferredConfig = Bitmap.Config.RGB_565
+                }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+            } else null
+        } catch (e: Exception) {
+            Log.d(TAG, "extractEmbeddedPictureFromUri error on '$uriString': ${e.message}")
+            null
+        } finally {
+            runCatching { mmr.release() }
+        }
+    }
+
+    /**
+     * Generates a deterministic, gorgeous multi-color radial gradient aura bitmap
+     * for tracks that lack embedded artwork, guaranteeing every song gets a unique theme.
+     */
+    private fun generateHarmonicAuraBitmap(track: Track): Bitmap {
+        val width = 120
+        val height = 120
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val hash = (track.title + track.artist + track.id).hashCode()
+
+        // Curated harmonic palette pairs
+        val colorPairs = listOf(
+            Pair(0xFFA855F7.toInt(), 0xFF3B82F6.toInt()), // Neon Violet & Electric Blue
+            Pair(0xFFEC4899.toInt(), 0xFF8B5CF6.toInt()), // Vivid Pink & Purple
+            Pair(0xFF06B6D4.toInt(), 0xFF3B82F6.toInt()), // Cyan & Ocean Blue
+            Pair(0xFFF59E0B.toInt(), 0xFFEF4444.toInt()), // Amber & Sunset Red
+            Pair(0xFF10B981.toInt(), 0xFF06B6D4.toInt()), // Emerald & Aqua
+            Pair(0xFF8B5CF6.toInt(), 0xFFF43F5E.toInt()), // Deep Purple & Rose
+            Pair(0xFF6366F1.toInt(), 0xFFA855F7.toInt()), // Indigo & Radiant Violet
+            Pair(0xFF14B8A6.toInt(), 0xFF6366F1.toInt())  // Teal & Indigo
+        )
+
+        val pairIndex = Math.abs(hash) % colorPairs.size
+        val (color1, color2) = colorPairs[pairIndex]
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        // Base linear gradient
+        paint.shader = LinearGradient(
+            0f, 0f, width.toFloat(), height.toFloat(),
+            color1, color2, Shader.TileMode.CLAMP
+        )
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+
+        // Radial bloom top-right
+        paint.shader = RadialGradient(
+            width * 0.8f, height * 0.2f, width * 0.65f,
+            color2, android.graphics.Color.TRANSPARENT, Shader.TileMode.CLAMP
+        )
+        canvas.drawCircle(width * 0.8f, height * 0.2f, width * 0.65f, paint)
+
+        return bitmap
     }
 
     /**

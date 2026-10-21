@@ -46,6 +46,7 @@ import com.sruti.music.online.MusicSourceRegistry
 import com.sruti.music.online.SrutiDownloadManager
 import com.sruti.music.playback.PlaybackStateManager
 import com.sruti.music.theme.GlassWhite
+import com.sruti.music.theme.LocalDynamicTheme
 import com.sruti.music.theme.NeonPurple
 import kotlinx.coroutines.launch
 
@@ -76,6 +77,7 @@ fun PlaylistDetailScreen(
     val database = remember { SrutiDatabase.getDatabase(context) }
     val downloadManager = remember { SrutiDownloadManager.getInstance(context) }
     val playbackState by PlaybackStateManager.state.collectAsState()
+    val dynamicTheme = LocalDynamicTheme.current
     val prefs = remember { context.getSharedPreferences("sruti_playlist_prefs", Context.MODE_PRIVATE) }
 
     var songs by remember { mutableStateOf<List<PlaylistSongEntity>>(emptyList()) }
@@ -118,13 +120,39 @@ fun PlaylistDetailScreen(
 
     // Observe playlist songs from Room
     LaunchedEffect(playlist.id) {
-        database.musicDao().getSongsForPlaylist(playlist.id).collect { list ->
-            songs = list
-            if (playlistCustomArtwork.isNullOrBlank()) {
-                val firstArt = list.firstOrNull { !it.artworkUriString.isNullOrBlank() }?.artworkUriString
-                if (!firstArt.isNullOrBlank()) {
-                    playlistCustomArtwork = firstArt
-                    database.musicDao().updatePlaylistArtworkUrl(playlist.id, firstArt)
+        if (playlist.id == -999L) {
+            database.musicDao().getAllCompletedDownloads().collect { list ->
+                songs = list.mapIndexed { idx, d ->
+                    PlaylistSongEntity(
+                        id = idx.toLong() + 1,
+                        playlistId = -999L,
+                        trackId = d.trackId,
+                        title = d.title,
+                        artist = d.artist,
+                        album = d.album,
+                        durationSeconds = d.durationSeconds,
+                        mediaUriString = d.localFilePath,
+                        artworkUriString = d.artworkUriString,
+                        sourceId = "downloaded",
+                        sortOrder = idx
+                    )
+                }
+                if (playlistCustomArtwork.isNullOrBlank()) {
+                    val firstArt = list.firstOrNull { !it.artworkUriString.isNullOrBlank() }?.artworkUriString
+                    if (!firstArt.isNullOrBlank()) {
+                        playlistCustomArtwork = firstArt
+                    }
+                }
+            }
+        } else {
+            database.musicDao().getSongsForPlaylist(playlist.id).collect { list ->
+                songs = list
+                if (playlistCustomArtwork.isNullOrBlank()) {
+                    val firstArt = list.firstOrNull { !it.artworkUriString.isNullOrBlank() }?.artworkUriString
+                    if (!firstArt.isNullOrBlank()) {
+                        playlistCustomArtwork = firstArt
+                        database.musicDao().updatePlaylistArtworkUrl(playlist.id, firstArt)
+                    }
                 }
             }
         }
@@ -214,8 +242,8 @@ fun PlaylistDetailScreen(
                         expanded = showSortMenu,
                         onDismissRequest = { showSortMenu = false },
                         modifier = Modifier
-                            .background(Color(0xF0181028))
-                            .border(1.dp, Color(0x35FFFFFF), RoundedCornerShape(14.dp))
+                            .background(Color(0xF0120E1C))
+                            .border(1.dp, dynamicTheme.primary.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
                     ) {
                         Text(
                             text = "Sort by",
@@ -235,7 +263,7 @@ fun PlaylistDetailScreen(
                                     ) {
                                         Text(
                                             text = option.displayName,
-                                            color = if (sortOption == option) NeonPurple else Color.White,
+                                            color = if (sortOption == option) dynamicTheme.primary else Color.White,
                                             fontSize = 13.5.sp,
                                             fontWeight = if (sortOption == option) FontWeight.Bold else FontWeight.Normal
                                         )
@@ -243,7 +271,7 @@ fun PlaylistDetailScreen(
                                             Icon(
                                                 imageVector = Icons.Rounded.Check,
                                                 contentDescription = null,
-                                                tint = NeonPurple,
+                                                tint = dynamicTheme.primary,
                                                 modifier = Modifier.size(16.dp)
                                             )
                                         }
@@ -277,10 +305,10 @@ fun PlaylistDetailScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Rounded.Menu, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Compact", color = if (viewMode == PlaylistViewMode.COMPACT) NeonPurple else Color.White, fontSize = 13.5.sp)
+                                        Text("Compact", color = if (viewMode == PlaylistViewMode.COMPACT) dynamicTheme.primary else Color.White, fontSize = 13.5.sp)
                                     }
                                     if (viewMode == PlaylistViewMode.COMPACT) {
-                                        Icon(Icons.Rounded.Check, contentDescription = null, tint = NeonPurple, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Rounded.Check, contentDescription = null, tint = dynamicTheme.primary, modifier = Modifier.size(16.dp))
                                     }
                                 }
                             },
@@ -300,10 +328,10 @@ fun PlaylistDetailScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Rounded.List, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("List", color = if (viewMode == PlaylistViewMode.LIST) NeonPurple else Color.White, fontSize = 13.5.sp)
+                                        Text("List", color = if (viewMode == PlaylistViewMode.LIST) dynamicTheme.primary else Color.White, fontSize = 13.5.sp)
                                     }
                                     if (viewMode == PlaylistViewMode.LIST) {
-                                        Icon(Icons.Rounded.Check, contentDescription = null, tint = NeonPurple, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Rounded.Check, contentDescription = null, tint = dynamicTheme.primary, modifier = Modifier.size(16.dp))
                                     }
                                 }
                             },
@@ -327,20 +355,22 @@ fun PlaylistDetailScreen(
                         expanded = showOptionsMenu,
                         onDismissRequest = { showOptionsMenu = false },
                         modifier = Modifier
-                            .background(Color(0xF0181028))
-                            .border(1.dp, Color(0x35FFFFFF), RoundedCornerShape(14.dp))
+                            .background(Color(0xF0120E1C))
+                            .border(1.dp, dynamicTheme.primary.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("Add / Import Songs", color = Color.White, fontSize = 13.5.sp) },
-                            leadingIcon = { Icon(Icons.Rounded.AddCircleOutline, contentDescription = null, tint = NeonPurple, modifier = Modifier.size(18.dp)) },
-                            onClick = {
-                                showOptionsMenu = false
-                                showImportSongsDialog = true
-                            }
-                        )
+                        if (playlist.id != -999L) {
+                            DropdownMenuItem(
+                                text = { Text("Add / Import Songs", color = Color.White, fontSize = 13.5.sp) },
+                                leadingIcon = { Icon(Icons.Rounded.AddCircleOutline, contentDescription = null, tint = dynamicTheme.primary, modifier = Modifier.size(18.dp)) },
+                                onClick = {
+                                    showOptionsMenu = false
+                                    showImportSongsDialog = true
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Add All to Queue", color = Color.White, fontSize = 13.5.sp) },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null, tint = NeonPurple, modifier = Modifier.size(18.dp)) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null, tint = dynamicTheme.primary, modifier = Modifier.size(18.dp)) },
                             onClick = {
                                 showOptionsMenu = false
                                 val queueTracks = playableSongs.map { toTrack(it) }
@@ -357,33 +387,35 @@ fun PlaylistDetailScreen(
                                 selectedTrackIds = emptySet()
                             }
                         )
-                        HorizontalDivider(color = Color(0x25FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
-                        DropdownMenuItem(
-                            text = { Text("Change Cover Artwork", color = Color.White, fontSize = 13.5.sp) },
-                            leadingIcon = { Icon(Icons.Rounded.Image, contentDescription = null, tint = NeonPurple, modifier = Modifier.size(18.dp)) },
-                            onClick = {
-                                showOptionsMenu = false
-                                imagePickerLauncher.launch("image/*")
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Rename Playlist", color = Color.White, fontSize = 13.5.sp) },
-                            leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) },
-                            onClick = {
-                                showOptionsMenu = false
-                                renameInputText = playlistCurrentName
-                                showRenameDialog = true
-                            }
-                        )
-                        HorizontalDivider(color = Color(0x25FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
-                        DropdownMenuItem(
-                            text = { Text("Delete Playlist", color = Color(0xFFFF5252), fontSize = 13.5.sp) },
-                            leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null, tint = Color(0xFFFF5252), modifier = Modifier.size(18.dp)) },
-                            onClick = {
-                                showOptionsMenu = false
-                                showDeleteConfirmDialog = true
-                            }
-                        )
+                        if (playlist.id != -999L) {
+                            HorizontalDivider(color = Color(0x25FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
+                            DropdownMenuItem(
+                                text = { Text("Change Cover Artwork", color = Color.White, fontSize = 13.5.sp) },
+                                leadingIcon = { Icon(Icons.Rounded.Image, contentDescription = null, tint = dynamicTheme.primary, modifier = Modifier.size(18.dp)) },
+                                onClick = {
+                                    showOptionsMenu = false
+                                    imagePickerLauncher.launch("image/*")
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Rename Playlist", color = Color.White, fontSize = 13.5.sp) },
+                                leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp)) },
+                                onClick = {
+                                    showOptionsMenu = false
+                                    renameInputText = playlistCurrentName
+                                    showRenameDialog = true
+                                }
+                            )
+                            HorizontalDivider(color = Color(0x25FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
+                            DropdownMenuItem(
+                                text = { Text("Delete Playlist", color = Color(0xFFFF5252), fontSize = 13.5.sp) },
+                                leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null, tint = Color(0xFFFF5252), modifier = Modifier.size(18.dp)) },
+                                onClick = {
+                                    showOptionsMenu = false
+                                    showDeleteConfirmDialog = true
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -397,8 +429,8 @@ fun PlaylistDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .background(Color(0x35BA2DF7))
-                    .border(1.dp, NeonPurple, RoundedCornerShape(14.dp))
+                    .background(dynamicTheme.primary.copy(alpha = 0.22f))
+                    .border(1.dp, dynamicTheme.primary, RoundedCornerShape(14.dp))
                     .padding(horizontal = 14.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -422,7 +454,7 @@ fun PlaylistDetailScreen(
                             Toast.makeText(context, "Added ${selectedTracks.size} tracks to queue", Toast.LENGTH_SHORT).show()
                         },
                         enabled = selectedTrackIds.isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
+                        colors = ButtonDefaults.buttonColors(containerColor = dynamicTheme.primary),
                         shape = RoundedCornerShape(10.dp),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                         modifier = Modifier.height(34.dp)
@@ -535,7 +567,7 @@ fun PlaylistDetailScreen(
                     }
                 },
                 enabled = playableSongs.isNotEmpty(),
-                colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
+                colors = ButtonDefaults.buttonColors(containerColor = dynamicTheme.primary),
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .weight(1f)
@@ -581,14 +613,14 @@ fun PlaylistDetailScreen(
             OutlinedButton(
                 onClick = { showImportSongsDialog = true },
                 shape = RoundedCornerShape(14.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, NeonPurple.copy(alpha = 0.6f)),
-                colors = ButtonDefaults.outlinedButtonColors(containerColor = NeonPurple.copy(alpha = 0.12f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, dynamicTheme.primary.copy(alpha = 0.6f)),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = dynamicTheme.primary.copy(alpha = 0.12f)),
                 modifier = Modifier.height(46.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Add,
                     contentDescription = "Add Songs",
-                    tint = NeonPurple,
+                    tint = dynamicTheme.primary,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
@@ -919,16 +951,17 @@ private fun PlaylistTrackRowItem(
     onRemoveFromPlaylist: () -> Unit = {},
     onDownload: () -> Unit = {}
 ) {
+    val dynamicTheme = LocalDynamicTheme.current
     var showTrackMenu by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(if (isSelected) Color(0x35BA2DF7) else if (isCurrent) Color(0x28BA2DF7) else Color(0x12FFFFFF))
+            .background(if (isSelected) dynamicTheme.primary.copy(alpha = 0.25f) else if (isCurrent) dynamicTheme.primary.copy(alpha = 0.15f) else Color(0x12FFFFFF))
             .border(
                 1.dp,
-                if (isSelected) NeonPurple else if (isCurrent) NeonPurple.copy(alpha = 0.7f) else Color(0x20FFFFFF),
+                if (isSelected) dynamicTheme.primary else if (isCurrent) dynamicTheme.primary.copy(alpha = 0.7f) else Color(0x20FFFFFF),
                 RoundedCornerShape(14.dp)
             )
             .combinedClickable(
@@ -943,7 +976,7 @@ private fun PlaylistTrackRowItem(
                 checked = isSelected,
                 onCheckedChange = { onClick() },
                 colors = CheckboxDefaults.colors(
-                    checkedColor = NeonPurple,
+                    checkedColor = dynamicTheme.primary,
                     checkmarkColor = Color.Black
                 ),
                 modifier = Modifier.size(24.dp)
@@ -972,7 +1005,7 @@ private fun PlaylistTrackRowItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.title,
-                color = if (isCurrent) NeonPurple else if (isPlayable) Color.White else GlassWhite.copy(0.5f),
+                color = if (isCurrent) dynamicTheme.primary else if (isPlayable) Color.White else GlassWhite.copy(0.5f),
                 fontSize = 14.5.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1
@@ -1007,12 +1040,12 @@ private fun PlaylistTrackRowItem(
                     expanded = showTrackMenu,
                     onDismissRequest = { showTrackMenu = false },
                     modifier = Modifier
-                        .background(Color(0xF0181028))
-                        .border(1.dp, Color(0x35FFFFFF), RoundedCornerShape(14.dp))
+                        .background(Color(0xF0120E1C))
+                        .border(1.dp, dynamicTheme.primary.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
                 ) {
                     DropdownMenuItem(
                         text = { Text("Play Next", color = Color.White, fontSize = 13.sp) },
-                        leadingIcon = { Icon(Icons.Rounded.QueuePlayNext, contentDescription = null, tint = NeonPurple, modifier = Modifier.size(16.dp)) },
+                        leadingIcon = { Icon(Icons.Rounded.QueuePlayNext, contentDescription = null, tint = dynamicTheme.primary, modifier = Modifier.size(16.dp)) },
                         onClick = {
                             showTrackMenu = false
                             onPlayNext()
@@ -1083,11 +1116,12 @@ private fun PlaylistCompactRowItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit = {}
 ) {
+    val dynamicTheme = LocalDynamicTheme.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(if (isSelected) Color(0x35BA2DF7) else if (isCurrent) Color(0x22BA2DF7) else Color(0x0EFFFFFF))
+            .background(if (isSelected) dynamicTheme.primary.copy(alpha = 0.25f) else if (isCurrent) dynamicTheme.primary.copy(alpha = 0.15f) else Color(0x0EFFFFFF))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -1100,7 +1134,7 @@ private fun PlaylistCompactRowItem(
                 checked = isSelected,
                 onCheckedChange = { onClick() },
                 colors = CheckboxDefaults.colors(
-                    checkedColor = NeonPurple,
+                    checkedColor = dynamicTheme.primary,
                     checkmarkColor = Color.Black
                 ),
                 modifier = Modifier.size(20.dp)
@@ -1109,7 +1143,7 @@ private fun PlaylistCompactRowItem(
         } else {
             Text(
                 text = "$index",
-                color = if (isCurrent) NeonPurple else GlassWhite.copy(0.5f),
+                color = if (isCurrent) dynamicTheme.primary else GlassWhite.copy(0.5f),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.width(24.dp)

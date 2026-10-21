@@ -92,7 +92,6 @@ fun SpotifyImportScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .statusBarsPadding()
             .padding(horizontal = 18.dp)
             .verticalScroll(rememberScrollState())

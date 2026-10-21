@@ -41,6 +41,7 @@ import com.sruti.music.data.db.toTrack
 import com.sruti.music.online.SaavnMusicSource
 import com.sruti.music.online.SrutiDownloadManager
 import com.sruti.music.playback.PlaybackStateManager
+import com.sruti.music.theme.LocalDynamicTheme
 import com.sruti.music.theme.NeonPurple
 import com.sruti.music.theme.PureBlack
 import kotlinx.coroutines.flow.firstOrNull
@@ -52,6 +53,7 @@ fun HomeScreen(
     onSearchClick: () -> Unit,
     onNavigateLibrary: () -> Unit = {},
     onPlaylistClick: (PlaylistEntity) -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -62,6 +64,7 @@ fun HomeScreen(
     val downloadManager = remember { SrutiDownloadManager.getInstance(context) }
 
     val userProfile by authRepo.userProfile.collectAsState()
+    val dynamicTheme = LocalDynamicTheme.current
     val scrollState = rememberScrollState()
 
     var showProfileDialog by remember { mutableStateOf(false) }
@@ -127,7 +130,6 @@ fun HomeScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .statusBarsPadding()
             .padding(horizontal = 16.dp)
             .verticalScroll(scrollState)
@@ -175,13 +177,30 @@ fun HomeScreen(
                     )
                 }
 
+                // Settings Action
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF111315))
+                        .border(1.dp, Color(0x18FFFFFF), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Tune,
+                        contentDescription = "Appearance & Settings",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
                 // Account Action
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF111315))
-                        .border(1.dp, if (userProfile.isAuthenticated) NeonPurple else Color(0x18FFFFFF), CircleShape)
+                        .border(1.dp, if (userProfile.isAuthenticated) dynamicTheme.primary else Color(0x18FFFFFF), CircleShape)
                         .clickable { showProfileDialog = true },
                     contentAlignment = Alignment.Center
                 ) {
@@ -196,7 +215,7 @@ fun HomeScreen(
                     } else if (userProfile.isAuthenticated) {
                         Text(
                             text = userProfile.initials,
-                            color = NeonPurple,
+                            color = dynamicTheme.primary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -225,7 +244,7 @@ fun HomeScreen(
                             listOf(Color(0xFF3B125E), Color(0xFF1B112B))
                         )
                     )
-                    .border(1.dp, NeonPurple.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                    .border(1.dp, dynamicTheme.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
                     .clickable {
                         val favTracks = favoriteEntities.map { it.toTrack() }
                         if (favTracks.isNotEmpty()) {
@@ -271,7 +290,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(NeonPurple),
+                        .background(dynamicTheme.primary),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -287,7 +306,69 @@ fun HomeScreen(
         }
 
         // ==========================================
-        // SECTION 1: Continue Listening
+        // SECTION 1: Your Playlists & Downloaded Music
+        // ==========================================
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Your Playlists",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "See All",
+                color = dynamicTheme.primary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable { onNavigateLibrary() }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // 1. Dedicated Downloaded Music Folder Card
+            item {
+                HomeDownloadedFolderCard(
+                    songCount = downloadedTracks.size,
+                    onClick = {
+                        onPlaylistClick(
+                            PlaylistEntity(
+                                id = -999L,
+                                name = "Downloaded Music"
+                            )
+                        )
+                    }
+                )
+            }
+
+            // 2. User Playlists
+            items(playlists) { playlist ->
+                HomePlaylistCard(
+                    playlist = playlist,
+                    onClick = { onPlaylistClick(playlist) }
+                )
+            }
+
+            // 3. New Playlist Quick Action Card
+            item {
+                HomeNewPlaylistCard(
+                    onClick = { onNavigateLibrary() }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ==========================================
+        // SECTION 2: Continue Listening
         // ==========================================
         val continueCandidates = remember(recentTracks, favoriteEntities, downloadedTracks, deviceTracks) {
             val list = (recentTracks + favoriteEntities.map { it.toTrack() } + downloadedTracks + deviceTracks)
@@ -309,7 +390,7 @@ fun HomeScreen(
                 )
                 Text(
                     text = "See All",
-                    color = NeonPurple,
+                    color = dynamicTheme.primary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clickable { onNavigateLibrary() }
@@ -334,7 +415,7 @@ fun HomeScreen(
         }
 
         // ==========================================
-        // SECTION 2: Made For You
+        // SECTION 3: Made For You
         // ==========================================
         Text(
             text = "Made for you",
@@ -360,7 +441,7 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // ==========================================
-        // SECTION 3: Recently Played
+        // SECTION 4: Recently Played
         // ==========================================
         if (recentTracks.isNotEmpty()) {
             Row(
@@ -376,7 +457,7 @@ fun HomeScreen(
                 )
                 Text(
                     text = "See All",
-                    color = NeonPurple,
+                    color = dynamicTheme.primary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clickable { onNavigateLibrary() }
@@ -400,47 +481,6 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // ==========================================
-        // SECTION 4: Your Playlists
-        // ==========================================
-        if (playlists.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Your Playlists",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "See All",
-                    color = NeonPurple,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable { onNavigateLibrary() }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(playlists) { playlist ->
-                    HomePlaylistCard(
-                        playlist = playlist,
-                        onClick = { onPlaylistClick(playlist) }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
         // Bottom space for mini-player and bottom navigation
         Spacer(modifier = Modifier.height(160.dp))
     }
@@ -451,6 +491,10 @@ fun HomeScreen(
             deviceTracksCount = deviceTracks.size,
             favoriteTracksCount = favoriteEntities.size,
             playlistsCount = playlists.size,
+            onOpenSettings = {
+                showProfileDialog = false
+                onSettingsClick()
+            },
             onDismiss = { showProfileDialog = false }
         )
     }
@@ -571,6 +615,144 @@ private fun HomePlaylistCard(
         )
         Text(
             text = "Playlist",
+            color = Color(0xFFA1A1AA),
+            fontSize = 11.5.sp,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun HomeDownloadedFolderCard(
+    songCount: Int,
+    onClick: () -> Unit
+) {
+    val dynamicTheme = LocalDynamicTheme.current
+    Column(
+        modifier = Modifier
+            .width(120.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            dynamicTheme.primary.copy(alpha = 0.35f),
+                            Color(0xFF14171E)
+                        )
+                    )
+                )
+                .border(1.dp, dynamicTheme.primary.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(dynamicTheme.primary.copy(alpha = 0.25f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.FolderSpecial,
+                        contentDescription = "Downloaded Music Folder",
+                        tint = dynamicTheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "OFFLINE",
+                    color = dynamicTheme.primary,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = "Downloaded Music",
+            color = Color.White,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1
+        )
+        Text(
+            text = if (songCount > 0) "$songCount songs" else "Offline Folder",
+            color = Color(0xFFA1A1AA),
+            fontSize = 11.5.sp,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun HomeNewPlaylistCard(
+    onClick: () -> Unit
+) {
+    val dynamicTheme = LocalDynamicTheme.current
+    Column(
+        modifier = Modifier
+            .width(120.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF121418))
+                .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0x18FFFFFF)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = "New Playlist",
+                        tint = dynamicTheme.primary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "NEW",
+                    color = Color(0xFFA1A1AA),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = "New Playlist",
+            color = Color.White,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1
+        )
+        Text(
+            text = "Create custom",
             color = Color(0xFFA1A1AA),
             fontSize = 11.5.sp,
             maxLines = 1

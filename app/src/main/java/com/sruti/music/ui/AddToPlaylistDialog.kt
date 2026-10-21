@@ -28,6 +28,7 @@ import com.sruti.music.data.db.PlaylistEntity
 import com.sruti.music.data.db.PlaylistSongEntity
 import com.sruti.music.data.db.SrutiDatabase
 import com.sruti.music.theme.GlassWhite
+import com.sruti.music.theme.LocalDynamicTheme
 import com.sruti.music.theme.NeonPurple
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -40,6 +41,7 @@ fun AddToPlaylistDialog(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val database = remember { SrutiDatabase.getDatabase(context) }
+    val dynamicTheme = LocalDynamicTheme.current
 
     var playlists by remember { mutableStateOf<List<PlaylistEntity>>(emptyList()) }
     var existingPlaylistIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
@@ -118,7 +120,7 @@ fun AddToPlaylistDialog(
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = track.title,
-                            color = NeonPurple,
+                            color = dynamicTheme.primary,
                             fontSize = 12.5.sp,
                             maxLines = 1
                         )
@@ -141,7 +143,7 @@ fun AddToPlaylistDialog(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
                         .background(Color(0x22FFFFFF))
-                        .border(1.dp, NeonPurple.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                        .border(1.dp, dynamicTheme.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
                         .clickable { showCreateDialog = true }
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -150,13 +152,13 @@ fun AddToPlaylistDialog(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(NeonPurple.copy(alpha = 0.2f)),
+                            .background(dynamicTheme.primary.copy(alpha = 0.2f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Add,
                             contentDescription = "New",
-                            tint = NeonPurple,
+                            tint = dynamicTheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -197,10 +199,10 @@ fun AddToPlaylistDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(if (isAlreadyAdded) Color(0x20B625FF) else Color(0x15FFFFFF))
+                                    .background(if (isAlreadyAdded) dynamicTheme.primary.copy(alpha = 0.18f) else Color(0x15FFFFFF))
                                     .border(
                                         1.dp,
-                                        if (isAlreadyAdded) NeonPurple.copy(alpha = 0.5f) else Color(0x20FFFFFF),
+                                        if (isAlreadyAdded) dynamicTheme.primary.copy(alpha = 0.5f) else Color(0x20FFFFFF),
                                         RoundedCornerShape(14.dp)
                                     )
                                     .clickable {
@@ -254,7 +256,7 @@ fun AddToPlaylistDialog(
                                     )
                                     Text(
                                         text = if (isAlreadyAdded) "Already in playlist" else "Tap to add",
-                                        color = if (isAlreadyAdded) NeonPurple else GlassWhite.copy(alpha = 0.6f),
+                                        color = if (isAlreadyAdded) dynamicTheme.primary else GlassWhite.copy(alpha = 0.6f),
                                         fontSize = 11.5.sp
                                     )
                                 }
@@ -263,7 +265,7 @@ fun AddToPlaylistDialog(
                                     Icon(
                                         imageVector = Icons.Rounded.CheckCircle,
                                         contentDescription = "Added",
-                                        tint = NeonPurple,
+                                        tint = dynamicTheme.primary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 } else {

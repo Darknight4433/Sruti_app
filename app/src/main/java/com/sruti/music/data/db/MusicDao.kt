@@ -112,6 +112,9 @@ interface MusicDao {
     @Query("SELECT * FROM downloads WHERE trackId = :trackId")
     suspend fun getDownloadByTrackId(trackId: String): DownloadEntity?
 
+    @Query("SELECT * FROM downloads WHERE status = 'COMPLETED' AND (title LIKE '%' || :query || '%' OR localFilePath LIKE '%' || :query || '%') LIMIT 1")
+    suspend fun findDownloadByTitle(query: String): DownloadEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDownload(download: DownloadEntity)
 

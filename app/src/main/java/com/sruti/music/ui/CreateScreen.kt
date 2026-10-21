@@ -29,6 +29,7 @@ import com.sruti.music.data.db.PlaylistSongEntity
 import com.sruti.music.data.db.SrutiDatabase
 import com.sruti.music.data.db.toTrack
 import com.sruti.music.playback.PlaybackStateManager
+import com.sruti.music.theme.LocalDynamicTheme
 import com.sruti.music.theme.NeonPurple
 import com.sruti.music.theme.PureBlack
 import android.widget.Toast
@@ -50,6 +51,7 @@ fun CreateScreen(
     val scope = rememberCoroutineScope()
     val database = remember { SrutiDatabase.getDatabase(context) }
     val localRepo = remember { LocalAudioRepository(context) }
+    val dynamicTheme = LocalDynamicTheme.current
 
     val playlists by database.musicDao().getAllPlaylists().collectAsState(initial = emptyList())
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
@@ -122,7 +124,6 @@ fun CreateScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .statusBarsPadding()
             .padding(horizontal = 16.dp)
     ) {
@@ -165,7 +166,7 @@ fun CreateScreen(
             title = "New Playlist",
             subtitle = "Create your own playlist",
             icon = Icons.Rounded.Add,
-            iconTint = NeonPurple,
+            iconTint = dynamicTheme.primary,
             iconBoxBg = Color(0xFF181B1F),
             onClick = { showCreatePlaylistDialog = true }
         )
@@ -189,7 +190,7 @@ fun CreateScreen(
             title = "Import All Device Music",
             subtitle = "Create playlist with all local music files",
             icon = Icons.Rounded.FolderZip,
-            iconTint = NeonPurple,
+            iconTint = dynamicTheme.primary,
             iconBoxBg = Color(0xFF181B1F),
             onClick = {
                 scope.launch {
@@ -264,7 +265,7 @@ fun CreateScreen(
             if (playlists.isNotEmpty()) {
                 Text(
                     text = "See All",
-                    color = NeonPurple,
+                    color = dynamicTheme.primary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -415,7 +416,7 @@ fun CreateScreen(
             },
             confirmButton = {
                 TextButton(onClick = { selectedPlaylistForMenu = null }) {
-                    Text("Close", color = NeonPurple)
+                    Text("Close", color = dynamicTheme.primary)
                 }
             }
         )

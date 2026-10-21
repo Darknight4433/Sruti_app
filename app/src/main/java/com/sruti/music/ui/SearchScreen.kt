@@ -51,6 +51,7 @@ fun SearchScreen(
     val scope = rememberCoroutineScope()
     val localRepo = remember { LocalAudioRepository(context) }
     val database = remember { SrutiDatabase.getDatabase(context) }
+    val dynamicTheme = LocalDynamicTheme.current
     val favoriteEntities by database.musicDao().getAllFavorites().collectAsState(initial = emptyList())
     val favoriteTrackIds = remember(favoriteEntities) { favoriteEntities.map { it.trackId }.toSet() }
 
@@ -147,7 +148,6 @@ fun SearchScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .statusBarsPadding()
             .padding(horizontal = 16.dp)
     ) {
@@ -203,7 +203,7 @@ fun SearchScreen(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         ),
-                        cursorBrush = SolidColor(NeonPurple),
+                        cursorBrush = SolidColor(dynamicTheme.primary),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -237,10 +237,10 @@ fun SearchScreen(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
-                        .background(if (isSelected) NeonPurple else Color(0xFF181B1F))
+                        .background(if (isSelected) dynamicTheme.primary else Color(0xFF181B1F))
                         .border(
                             width = 1.dp,
-                            color = if (isSelected) NeonPurple else Color(0x1AFFFFFF),
+                            color = if (isSelected) dynamicTheme.primary else Color(0x1AFFFFFF),
                             shape = RoundedCornerShape(20.dp)
                         )
                         .clickable { selectedFilter = filter }
@@ -281,7 +281,7 @@ fun SearchScreen(
                         )
                         Text(
                             text = "See All",
-                            color = NeonPurple,
+                            color = dynamicTheme.primary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.clickable {
@@ -300,7 +300,7 @@ fun SearchScreen(
                                 .height(100.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(color = NeonPurple, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(color = dynamicTheme.primary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                         }
                     }
                 } else if (trendingTracks.isEmpty()) {
@@ -358,7 +358,7 @@ fun SearchScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = NeonPurple, modifier = Modifier.size(32.dp), strokeWidth = 2.5.dp)
+                        CircularProgressIndicator(color = dynamicTheme.primary, modifier = Modifier.size(32.dp), strokeWidth = 2.5.dp)
                         Spacer(modifier = Modifier.height(12.dp))
                         Text("Searching online catalogue...", color = Color(0xFFA1A1AA), fontSize = 13.sp)
                     }
@@ -384,7 +384,7 @@ fun SearchScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF181B1F)),
                             shape = RoundedCornerShape(14.dp)
                         ) {
-                            Text("Retry", color = NeonPurple)
+                            Text("Retry", color = dynamicTheme.primary)
                         }
                     }
                 }
@@ -475,7 +475,7 @@ fun SearchScreen(
             },
             confirmButton = {
                 TextButton(onClick = { selectedTrackForMenu = null }) {
-                    Text("Close", color = NeonPurple)
+                    Text("Close", color = dynamicTheme.primary)
                 }
             }
         )

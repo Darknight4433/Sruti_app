@@ -53,7 +53,7 @@ fun AmbientBackground(
     var dynamicData by remember { mutableStateOf(DynamicBackgroundManager.defaultArtworkData) }
 
     LaunchedEffect(currentTrack?.id, backgroundIntensity, backgroundStyle) {
-        if (backgroundStyle == "dynamic" && currentTrack != null) {
+        if (backgroundStyle == "dynamic" && currentTrack != null && currentTrack.id.isNotBlank()) {
             dynamicData = DynamicBackgroundManager.extractDataForTrack(
                 context,
                 currentTrack,
@@ -87,10 +87,26 @@ fun AmbientBackground(
         label = "anim_dark"
     )
 
+    val currentTheme = remember(animPrimary, animSecondary, animAccent, animDark, backgroundStyle, themeId) {
+        val effectivePrimary = if (backgroundStyle == "dynamic") animPrimary else themePrimary(themeId)
+        val effectiveSecondary = if (backgroundStyle == "dynamic") animSecondary else themeSecondary(themeId)
+        val effectiveAccent = if (backgroundStyle == "dynamic") animAccent else themeAccent(themeId)
+        DynamicThemeColors(
+            primary = effectivePrimary,
+            secondary = effectiveSecondary,
+            accent = effectiveAccent,
+            darkBase = animDark,
+            surface = Color(0x18FFFFFF),
+            surfaceBorder = effectivePrimary.copy(alpha = 0.32f),
+            glow = effectivePrimary.copy(alpha = 0.40f),
+            isDynamic = backgroundStyle == "dynamic"
+        )
+    }
+
     val (scrimTopAlpha, scrimBottomAlpha, artworkAlpha) = when (backgroundIntensity) {
-        "subtle" -> Triple(0.55f, 0.85f, 0.35f)
-        "immersive" -> Triple(0.20f, 0.55f, 0.70f)
-        else -> Triple(0.35f, 0.70f, 0.52f) // "balanced" default
+        "subtle" -> Triple(0.35f, 0.65f, 0.55f)
+        "immersive" -> Triple(0.12f, 0.40f, 0.90f)
+        else -> Triple(0.20f, 0.52f, 0.78f) // "balanced" default
     }
 
     val gradientStops = when (themeId) {
@@ -128,120 +144,167 @@ fun AmbientBackground(
         )
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Midnight)
-    ) {
-        // Blurred Artwork Backdrop for Dynamic Mode
-        val currentArtwork = dynamicData.blurredArtwork
-        if (backgroundStyle == "dynamic" && currentArtwork != null) {
-            Image(
-                bitmap = currentArtwork,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .alpha(artworkAlpha),
-                contentScale = ContentScale.Crop
-            )
-        }
+    CompositionLocalProvider(LocalDynamicTheme provides currentTheme) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Midnight)
+        ) {
+            // Blurred Artwork Backdrop for Dynamic Mode
+            val currentArtwork = dynamicData.blurredArtwork
+            if (backgroundStyle == "dynamic" && currentArtwork != null) {
+                Image(
+                    bitmap = currentArtwork,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .alpha(artworkAlpha),
+                    contentScale = ContentScale.Crop
+                )
+            }
 
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
 
-            when (backgroundStyle) {
-                "solid_dark" -> {
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            listOf(Color(0xFF141122), Color(0xFF0A0814))
-                        ),
-                        size = size
-                    )
-                }
-                "dynamic" -> {
-                    // 1. Dynamic Vertical Gradient from track palette
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            0.00f to animPrimary.copy(alpha = if (currentArtwork != null) 0.65f else 1.0f),
-                            0.22f to animSecondary.copy(alpha = if (currentArtwork != null) 0.60f else 1.0f),
-                            0.55f to Color(0xFF16102C).copy(alpha = 0.85f),
-                            0.82f to Color(0xFF0E0A1D),
-                            1.00f to animDark
-                        ),
-                        size = size
-                    )
-
-                    // 2. Soft radiant bloom with track accent
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                animAccent.copy(alpha = 0.60f),
-                                animSecondary.copy(alpha = 0.28f),
-                                Color.Transparent
+                when (backgroundStyle) {
+                    "solid_dark" -> {
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                listOf(Color(0xFF141122), Color(0xFF0A0814))
                             ),
-                            center = Offset(w * 0.50f, h * 0.12f),
-                            radius = w * 0.90f
-                        ),
-                        radius = w * 0.90f,
-                        center = Offset(w * 0.50f, h * 0.12f)
-                    )
-
-                    // 3. Ambient bloom mid-right with track primary
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                animPrimary.copy(alpha = 0.45f),
-                                Color.Transparent
-                            ),
-                            center = Offset(w * 0.85f, h * 0.55f),
-                            radius = w * 0.75f
-                        ),
-                        radius = w * 0.75f,
-                        center = Offset(w * 0.85f, h * 0.55f)
-                    )
-
-                    // 4. Subtle brand accent in lower left
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0x20BA2DF7),
-                                Color.Transparent
-                            ),
-                            center = Offset(w * 0.15f, h * 0.80f),
-                            radius = w * 0.60f
-                        ),
-                        radius = w * 0.60f,
-                        center = Offset(w * 0.15f, h * 0.80f)
-                    )
-
-                    // 5. Protective dark translucent scrim ensuring 100% legibility
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            listOf(
-                                Color(0xFF0A0715).copy(alpha = scrimTopAlpha),
-                                Color(0xFF0A0715).copy(alpha = scrimBottomAlpha)
+                            size = size
+                        )
+                    }
+                    "dynamic" -> {
+                        if (currentArtwork != null) {
+                            // 1. Translucent color wash from track palette over the artwork
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    0.00f to animPrimary.copy(alpha = 0.22f),
+                                    0.30f to animSecondary.copy(alpha = 0.20f),
+                                    0.70f to Color(0xFF0A0715).copy(alpha = 0.45f),
+                                    1.00f to animDark.copy(alpha = 0.70f)
+                                ),
+                                size = size
                             )
-                        ),
-                        size = size
-                    )
-                }
-                else -> { // "sruti_gradient"
-                    // 1. Vertical Gradient
-                    drawRect(
-                        brush = Brush.verticalGradient(
-                            *gradientStops
-                        ),
-                        size = size
-                    )
 
-                    // 2. Radiant Violet/Magenta Ambient Bloom at Top-Center
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0x95BA2DF7),
-                                Color(0x458E20E0),
-                                Color(0x008E20E0)
+                            // 2. Soft radiant bloom with track accent
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        animAccent.copy(alpha = 0.40f),
+                                        animSecondary.copy(alpha = 0.18f),
+                                        Color.Transparent
+                                    ),
+                                    center = Offset(w * 0.50f, h * 0.12f),
+                                    radius = w * 0.90f
+                                ),
+                                radius = w * 0.90f,
+                                center = Offset(w * 0.50f, h * 0.12f)
+                            )
+
+                            // 3. Ambient bloom mid-right with track primary
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        animPrimary.copy(alpha = 0.30f),
+                                        Color.Transparent
+                                    ),
+                                    center = Offset(w * 0.85f, h * 0.55f),
+                                    radius = w * 0.75f
+                                ),
+                                radius = w * 0.75f,
+                                center = Offset(w * 0.85f, h * 0.55f)
+                            )
+
+                            // 4. Subtle harmonic accent in lower left
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        animAccent.copy(alpha = 0.20f),
+                                        Color.Transparent
+                                    ),
+                                    center = Offset(w * 0.15f, h * 0.80f),
+                                    radius = w * 0.60f
+                                ),
+                                radius = w * 0.60f,
+                                center = Offset(w * 0.15f, h * 0.80f)
+                            )
+
+                            // 5. Protective dark translucent scrim ensuring 100% legibility
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    0.00f to Color(0xFF0A0715).copy(alpha = scrimTopAlpha),
+                                    0.40f to Color.Transparent,
+                                    1.00f to Color(0xFF0A0715).copy(alpha = scrimBottomAlpha)
+                                ),
+                                size = size
+                            )
+                        } else {
+                            // Dynamic Palette Gradient when no artwork bitmap
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    0.00f to animPrimary,
+                                    0.22f to animSecondary,
+                                    0.55f to Color(0xFF16102C).copy(alpha = 0.85f),
+                                    0.82f to Color(0xFF0E0A1D),
+                                    1.00f to animDark
+                                ),
+                                size = size
+                            )
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        animAccent.copy(alpha = 0.60f),
+                                        animSecondary.copy(alpha = 0.28f),
+                                        Color.Transparent
+                                    ),
+                                    center = Offset(w * 0.50f, h * 0.12f),
+                                    radius = w * 0.90f
+                                ),
+                                radius = w * 0.90f,
+                                center = Offset(w * 0.50f, h * 0.12f)
+                            )
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        animPrimary.copy(alpha = 0.45f),
+                                        Color.Transparent
+                                    ),
+                                    center = Offset(w * 0.85f, h * 0.55f),
+                                    radius = w * 0.75f
+                                ),
+                                radius = w * 0.75f,
+                                center = Offset(w * 0.85f, h * 0.55f)
+                            )
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    listOf(
+                                        Color(0xFF0A0715).copy(alpha = scrimTopAlpha),
+                                        Color(0xFF0A0715).copy(alpha = scrimBottomAlpha)
+                                    )
+                                ),
+                                size = size
+                            )
+                        }
+                    }
+                    else -> { // "sruti_gradient"
+                        // 1. Vertical Gradient
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                *gradientStops
+                            ),
+                            size = size
+                        )
+
+                        // 2. Radiant Violet/Magenta Ambient Bloom at Top-Center
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0x95BA2DF7),
+                                    Color(0x458E20E0),
+                                    Color(0x008E20E0)
                             ),
                             center = Offset(w * 0.48f, h * 0.10f),
                             radius = w * 0.85f
@@ -284,6 +347,7 @@ fun AmbientBackground(
 
         content()
     }
+}
 }
 
 @Composable
@@ -419,16 +483,17 @@ fun FloatingBottomNav(
     onTabSelected: (NavigationTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val dynamicTheme = LocalDynamicTheme.current
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .height(64.dp)
             .clip(RoundedCornerShape(32.dp))
-            .background(Color(0xF5111315))
+            .background(Color(0xF2110E1C))
             .border(
                 width = 1.dp,
-                color = Color(0x22FFFFFF),
+                color = dynamicTheme.primary.copy(alpha = 0.25f),
                 shape = RoundedCornerShape(32.dp)
             )
             .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -477,14 +542,15 @@ private fun NavTabItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val activeColor = NeonPurple
+    val dynamicTheme = LocalDynamicTheme.current
+    val activeColor = dynamicTheme.primary
     val inactiveColor = TextSecondary // #A1A1AA
     val tint = if (isSelected) activeColor else inactiveColor
 
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(if (isSelected) Color(0x24A855F7) else Color.Transparent)
+            .background(if (isSelected) dynamicTheme.primary.copy(alpha = 0.20f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -511,7 +577,8 @@ private fun NavTabItem(
 fun WaveformVisualizer(
     progress: Float, // 0.0f to 1.0f (e.g. 2:12 / 3:58 = ~0.55f)
     onSeek: (Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    playedColor: Color? = null
 ) {
     // 46 symmetrical wave bar heights precisely sampled from reference
     val barRatios = remember {
@@ -551,7 +618,7 @@ fun WaveformVisualizer(
             val bottom = centerY + (barH / 2f)
 
             val color = if (isPlayed) {
-                Color.White
+                playedColor ?: Color.White
             } else {
                 Color(0x55DCD4F5)
             }

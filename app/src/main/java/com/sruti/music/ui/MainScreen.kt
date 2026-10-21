@@ -42,6 +42,7 @@ import com.sruti.music.data.UserPreferencesRepository
 import com.sruti.music.data.db.PlaylistEntity
 import com.sruti.music.data.db.SrutiDatabase
 import com.sruti.music.playback.PlaybackStateManager
+import com.sruti.music.theme.LocalDynamicTheme
 import com.sruti.music.theme.NeonPurple
 import com.sruti.music.theme.PureBlack
 
@@ -180,6 +181,9 @@ fun MainScreen(themeId: String = "midnight_neon") {
                             },
                             onPlaylistClick = { playlist ->
                                 selectedPlaylist = playlist
+                            },
+                            onSettingsClick = {
+                                navigateToTab(NavigationTab.SETTINGS)
                             }
                         )
                     }
@@ -221,6 +225,9 @@ fun MainScreen(themeId: String = "midnight_neon") {
                             },
                             onAccountClick = {
                                 isAccountDialogOpen = true
+                            },
+                            onSettingsClick = {
+                                navigateToTab(NavigationTab.SETTINGS)
                             }
                         )
                     }
@@ -275,6 +282,10 @@ fun MainScreen(themeId: String = "midnight_neon") {
             deviceTracksCount = localCount,
             favoriteTracksCount = favEntities.size,
             playlistsCount = playlists.size,
+            onOpenSettings = {
+                isAccountDialogOpen = false
+                navigateToTab(NavigationTab.SETTINGS)
+            },
             onDismiss = { isAccountDialogOpen = false }
         )
     }
@@ -289,16 +300,17 @@ private fun MiniPlayer(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val dynamicTheme = LocalDynamicTheme.current
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .height(60.dp)
             .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xF5111315))
+            .background(Color(0xF2120E1C))
             .border(
                 width = 1.dp,
-                color = Color(0x22FFFFFF),
+                color = dynamicTheme.primary.copy(alpha = 0.35f),
                 shape = RoundedCornerShape(18.dp)
             )
             .clickable(onClick = onClick)
@@ -323,7 +335,8 @@ private fun MiniPlayer(
                 contentDescription = track.title,
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(RoundedCornerShape(8.dp)),
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(1.dp, dynamicTheme.primary.copy(alpha = 0.45f), RoundedCornerShape(8.dp)),
                 contentScale = ContentScale.Crop
             )
 
@@ -355,7 +368,7 @@ private fun MiniPlayer(
                 Icon(
                     imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = Color.White,
+                    tint = dynamicTheme.primary,
                     modifier = Modifier.size(24.dp)
                 )
             }

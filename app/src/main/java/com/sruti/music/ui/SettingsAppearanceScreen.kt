@@ -13,10 +13,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import com.sruti.music.playback.PlaybackStateManager
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +38,7 @@ import com.sruti.music.R
 import com.sruti.music.auth.AccountProfileDialog
 import com.sruti.music.components.GlassCircleButton
 import com.sruti.music.theme.GlassWhite
+import com.sruti.music.theme.LocalDynamicTheme
 import com.sruti.music.theme.NeonPurple
 
 data class ThemeItem(
@@ -70,6 +76,10 @@ fun SettingsAppearanceScreen(
     val authRepo = remember { com.sruti.music.auth.FirebaseAuthRepository.getInstance(context) }
     val userProfile by authRepo.userProfile.collectAsState()
     var showAccountDialog by remember { mutableStateOf(false) }
+
+    val playbackState by PlaybackStateManager.state.collectAsState()
+    val currentTrack = playbackState.currentTrack
+    val dynamicTheme = LocalDynamicTheme.current
 
     val bgStyles = remember {
         listOf(
@@ -217,7 +227,7 @@ fun SettingsAppearanceScreen(
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "Dynamic Glassmorphism Music",
-                                color = NeonPurple,
+                                color = dynamicTheme.primary,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -245,7 +255,7 @@ fun SettingsAppearanceScreen(
                                 modifier = Modifier
                                     .size(46.dp)
                                     .clip(CircleShape)
-                                    .border(1.5.dp, NeonPurple.copy(alpha = 0.6f), CircleShape)
+                                    .border(1.5.dp, dynamicTheme.primary.copy(alpha = 0.6f), CircleShape)
                             )
                         } else {
                             Box(
@@ -254,7 +264,7 @@ fun SettingsAppearanceScreen(
                                     .clip(CircleShape)
                                     .background(
                                         Brush.linearGradient(
-                                            listOf(NeonPurple.copy(alpha = 0.8f), Color(0xFF7C3AED).copy(alpha = 0.8f))
+                                            listOf(dynamicTheme.primary.copy(alpha = 0.8f), Color(0xFF7C3AED).copy(alpha = 0.8f))
                                         )
                                     )
                                     .border(1.5.dp, Color(0x60FFFFFF), CircleShape),
@@ -282,7 +292,7 @@ fun SettingsAppearanceScreen(
                             Text(
                                 text = userProfile.email?.ifBlank { null }
                                     ?: if (userProfile.isAuthenticated) "Firebase Authenticated Account" else "Tap to Sign In or Create Profile",
-                                color = if (userProfile.isAuthenticated) NeonPurple else GlassWhite.copy(alpha = 0.7f),
+                                color = if (userProfile.isAuthenticated) dynamicTheme.primary else GlassWhite.copy(alpha = 0.7f),
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Normal
                             )
@@ -291,79 +301,209 @@ fun SettingsAppearanceScreen(
                         Icon(
                             imageVector = Icons.Rounded.AccountCircle,
                             contentDescription = "Account Settings",
-                            tint = if (userProfile.isAuthenticated) NeonPurple else GlassWhite.copy(alpha = 0.6f),
+                            tint = if (userProfile.isAuthenticated) dynamicTheme.primary else GlassWhite.copy(alpha = 0.6f),
                             modifier = Modifier.size(24.dp)
                         )
                     }
                 }
             }
 
-            // 3. BACKGROUND STYLE SECTION
+            // 3. WHOLE APP ADAPTIVE BACKGROUND SECTION
             item {
                 Text(
-                    text = "Background Style",
+                    text = "Whole App Background",
                     color = Color.White,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
 
-            items(bgStyles, key = { it.id }) { style ->
-                val isSelected = style.id == selectedBgStyle
+            item {
+                val isDynamicActive = selectedBgStyle == "dynamic"
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(if (isSelected) Color(0x28B625FF) else Color(0x12FFFFFF))
-                        .border(
-                            width = 1.dp,
-                            color = if (isSelected) NeonPurple else Color(0x22FFFFFF),
-                            shape = RoundedCornerShape(18.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            brush = if (isDynamicActive) {
+                                Brush.verticalGradient(
+                                    listOf(dynamicTheme.primary.copy(alpha = 0.22f), Color(0x181028))
+                                )
+                            } else {
+                                Brush.verticalGradient(
+                                    listOf(Color(0x14FFFFFF), Color(0x0AFFFFFF))
+                                )
+                            }
                         )
-                        .clickable {
-                            scope.launch { prefsRepo.saveBackgroundStyle(style.id) }
-                        }
-                        .padding(16.dp)
+                        .border(
+                            width = 1.2.dp,
+                            color = if (isDynamicActive) dynamicTheme.primary else Color(0x22FFFFFF),
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                        .padding(18.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = style.title,
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = style.subtitle,
-                                color = GlassWhite.copy(alpha = 0.70f),
-                                fontSize = 12.5.sp,
-                                lineHeight = 16.sp
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(
+                                            if (isDynamicActive) Brush.linearGradient(
+                                                listOf(dynamicTheme.primary, dynamicTheme.accent)
+                                            ) else Brush.linearGradient(
+                                                listOf(Color(0xFF282834), Color(0xFF1E1E28))
+                                            )
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.GraphicEq,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(14.dp))
+
+                                Column {
+                                    Text(
+                                        text = "Adaptive Song Background",
+                                        color = Color.White,
+                                        fontSize = 15.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = if (isDynamicActive) "Active • Whole app adapting to song" else "Disabled • Static Background",
+                                        color = if (isDynamicActive) dynamicTheme.primary else GlassWhite.copy(alpha = 0.65f),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+
+                            Switch(
+                                checked = isDynamicActive,
+                                onCheckedChange = { isChecked ->
+                                    scope.launch {
+                                        prefsRepo.saveBackgroundStyle(if (isChecked) "dynamic" else "sruti_gradient")
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = dynamicTheme.primary,
+                                    uncheckedThumbColor = Color(0xFFA1A1AA),
+                                    uncheckedTrackColor = Color(0xFF27272A)
+                                )
                             )
                         }
 
-                        if (isSelected) {
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Icon(
-                                imageVector = Icons.Rounded.CheckCircle,
-                                contentDescription = "Selected",
-                                tint = NeonPurple,
-                                modifier = Modifier.size(22.dp)
-                            )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "Changes the entire app background (Home, Library, Search, etc.) in real time to match the thumbnail, album artwork, and color palette of whatever song is playing.",
+                            color = GlassWhite.copy(alpha = 0.75f),
+                            fontSize = 12.5.sp,
+                            lineHeight = 17.sp
+                        )
+
+                        // Live Playing Track Preview Card
+                        if (isDynamicActive) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0x35000000))
+                                    .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(14.dp))
+                                    .padding(12.dp)
+                            ) {
+                                if (currentTrack.id.isNotBlank()) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        AsyncImage(
+                                            model = currentTrack.artworkUriString?.takeIf { it.isNotBlank() }
+                                                ?: if (currentTrack.artworkResId != 0) currentTrack.artworkResId else R.drawable.sruti_artwork_fallback,
+                                            contentDescription = "Currently Playing Artwork",
+                                            modifier = Modifier
+                                                .size(46.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .border(1.dp, dynamicTheme.primary.copy(alpha = 0.8f), RoundedCornerShape(8.dp)),
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                        )
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(0xFF10B981))
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "CURRENT THUMBNAIL APPLIED",
+                                                    color = Color(0xFF10B981),
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    letterSpacing = 0.8.sp
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = currentTrack.title,
+                                                color = Color.White,
+                                                fontSize = 13.5.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1
+                                            )
+                                            Text(
+                                                text = currentTrack.artist,
+                                                color = GlassWhite.copy(alpha = 0.70f),
+                                                fontSize = 11.5.sp,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.MusicNote,
+                                            contentDescription = null,
+                                            tint = dynamicTheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Ready • Play any song to watch whole app background adapt live",
+                                            color = GlassWhite.copy(alpha = 0.75f),
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            // 4. INTENSITY CONTROL (Visible for Dynamic Artwork)
+            // 4. INTENSITY CONTROL (Visible when Adaptive Background is Active)
             if (selectedBgStyle == "dynamic") {
                 item {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Dynamic Artwork Intensity",
+                        text = "Adaptive Background Intensity",
                         color = Color.White,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.SemiBold
@@ -376,10 +516,10 @@ fun SettingsAppearanceScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(18.dp))
-                            .background(if (isSelected) Color(0x25BA2DF7) else Color(0x10FFFFFF))
+                            .background(if (isSelected) dynamicTheme.primary.copy(alpha = 0.18f) else Color(0x10FFFFFF))
                             .border(
                                 width = 1.dp,
-                                color = if (isSelected) NeonPurple else Color(0x1DFFFFFF),
+                                color = if (isSelected) dynamicTheme.primary else Color(0x1DFFFFFF),
                                 shape = RoundedCornerShape(18.dp)
                             )
                             .clickable {
@@ -412,8 +552,69 @@ fun SettingsAppearanceScreen(
                                 Icon(
                                     imageVector = Icons.Rounded.Tune,
                                     contentDescription = "Active",
-                                    tint = NeonPurple,
+                                    tint = dynamicTheme.primary,
                                     modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Static Background Options when Adaptive Background is Disabled
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Static Background Styles",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                items(bgStyles.filter { it.id != "dynamic" }, key = { it.id }) { style ->
+                    val isSelected = style.id == selectedBgStyle
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(if (isSelected) dynamicTheme.primary.copy(alpha = 0.18f) else Color(0x12FFFFFF))
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) dynamicTheme.primary else Color(0x22FFFFFF),
+                                shape = RoundedCornerShape(18.dp)
+                            )
+                            .clickable {
+                                scope.launch { prefsRepo.saveBackgroundStyle(style.id) }
+                            }
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = style.title,
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = style.subtitle,
+                                    color = GlassWhite.copy(alpha = 0.70f),
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+
+                            if (isSelected) {
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = "Selected",
+                                    tint = dynamicTheme.primary,
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
@@ -438,10 +639,10 @@ fun SettingsAppearanceScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(18.dp))
-                        .background(if (isSelected) Color(0x28B625FF) else Color(0x12FFFFFF))
+                        .background(if (isSelected) dynamicTheme.primary.copy(alpha = 0.18f) else Color(0x12FFFFFF))
                         .border(
                             width = 1.dp,
-                            color = if (isSelected) NeonPurple else Color(0x22FFFFFF),
+                            color = if (isSelected) dynamicTheme.primary else Color(0x22FFFFFF),
                             shape = RoundedCornerShape(18.dp)
                         )
                         .clickable {
@@ -489,7 +690,7 @@ fun SettingsAppearanceScreen(
                             Icon(
                                 imageVector = Icons.Rounded.CheckCircle,
                                 contentDescription = "Selected",
-                                tint = NeonPurple,
+                                tint = dynamicTheme.primary,
                                 modifier = Modifier.size(22.dp)
                             )
                         }

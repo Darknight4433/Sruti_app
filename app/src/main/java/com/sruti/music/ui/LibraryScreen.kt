@@ -44,6 +44,7 @@ import com.sruti.music.data.db.toTrack
 import com.sruti.music.auth.FirebaseAuthRepository
 import com.sruti.music.online.SrutiDownloadManager
 import com.sruti.music.playback.PlaybackStateManager
+import com.sruti.music.theme.LocalDynamicTheme
 import com.sruti.music.theme.NeonPurple
 import com.sruti.music.theme.PureBlack
 import kotlinx.coroutines.flow.firstOrNull
@@ -55,6 +56,7 @@ fun LibraryScreen(
     onPlaylistClick: (PlaylistEntity) -> Unit = {},
     onSearchClick: () -> Unit = {},
     onAccountClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -64,6 +66,7 @@ fun LibraryScreen(
     val downloadManager = remember { SrutiDownloadManager.getInstance(context) }
     val authRepo = remember { FirebaseAuthRepository.getInstance(context) }
     val userProfile by authRepo.userProfile.collectAsState()
+    val dynamicTheme = LocalDynamicTheme.current
 
     val audioPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         Manifest.permission.READ_MEDIA_AUDIO
@@ -152,7 +155,6 @@ fun LibraryScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(PureBlack)
             .statusBarsPadding()
             .padding(horizontal = 16.dp)
     ) {
@@ -188,13 +190,30 @@ fun LibraryScreen(
                     )
                 }
 
+                // Settings Action
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF111315))
+                        .border(1.dp, Color(0x18FFFFFF), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Tune,
+                        contentDescription = "Appearance & Settings",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
                 // Account Action with authentic Google photo or initials
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF111315))
-                        .border(1.dp, if (userProfile.isAuthenticated) NeonPurple else Color(0x18FFFFFF), CircleShape)
+                        .border(1.dp, if (userProfile.isAuthenticated) dynamicTheme.primary else Color(0x18FFFFFF), CircleShape)
                         .clickable { onAccountClick() },
                     contentAlignment = Alignment.Center
                 ) {
@@ -209,7 +228,7 @@ fun LibraryScreen(
                     } else if (userProfile.isAuthenticated) {
                         Text(
                             text = userProfile.initials,
-                            color = NeonPurple,
+                            color = dynamicTheme.primary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -355,7 +374,7 @@ fun LibraryScreen(
                         )
                         Text(
                             text = "See All",
-                            color = NeonPurple,
+                            color = dynamicTheme.primary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.clickable { selectedShortcut = "Recently Added" }
@@ -397,7 +416,7 @@ fun LibraryScreen(
                         )
                         Text(
                             text = "See All",
-                            color = NeonPurple,
+                            color = dynamicTheme.primary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.clickable { selectedShortcut = "Recently Played" }
@@ -490,7 +509,7 @@ fun LibraryScreen(
                                 shape = RoundedCornerShape(14.dp),
                                 modifier = Modifier.fillMaxWidth().height(48.dp)
                             ) {
-                                Text("Grant Permission to Access Local Audio", color = NeonPurple)
+                                Text("Grant Permission to Access Local Audio", color = dynamicTheme.primary)
                             }
                         }
                     } else if (localTracks.isEmpty()) {
@@ -513,11 +532,69 @@ fun LibraryScreen(
                 }
 
                 "Playlists" -> {
+                    // Downloaded Music Folder Row
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF14171E))
+                                .border(1.dp, dynamicTheme.primary.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                                .clickable {
+                                    onPlaylistClick(
+                                        PlaylistEntity(
+                                            id = -999L,
+                                            name = "Downloaded Music"
+                                        )
+                                    )
+                                }
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(50.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(dynamicTheme.primary.copy(alpha = 0.25f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.FolderSpecial,
+                                    contentDescription = "Folder",
+                                    tint = dynamicTheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Downloaded Music",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "${downloadedTracks.size} offline songs • Downloads Folder",
+                                    color = dynamicTheme.primary,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = "Open",
+                                tint = Color(0xFF71717A)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+
                     if (playlists.isEmpty()) {
                         item {
                             EmptyLibraryState(
                                 icon = Icons.AutoMirrored.Rounded.QueueMusic,
-                                title = "No playlists yet",
+                                title = "No custom playlists yet",
                                 subtitle = "Create your own playlist or import from Spotify in the Create tab."
                             )
                         }
@@ -663,7 +740,7 @@ fun LibraryScreen(
             },
             confirmButton = {
                 TextButton(onClick = { selectedTrackForMenu = null }) {
-                    Text("Close", color = NeonPurple)
+                    Text("Close", color = dynamicTheme.primary)
                 }
             }
         )
@@ -689,14 +766,15 @@ private fun LibraryShortcutItem(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val dynamicTheme = LocalDynamicTheme.current
     Box(
         modifier = modifier
             .height(48.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) Color(0xFF18232C) else Color(0xFF111315))
+            .background(if (isSelected) dynamicTheme.primary.copy(alpha = 0.18f) else Color(0xFF111315))
             .border(
                 width = 1.dp,
-                color = if (isSelected) NeonPurple else Color(0x18FFFFFF),
+                color = if (isSelected) dynamicTheme.primary else Color(0x18FFFFFF),
                 shape = RoundedCornerShape(12.dp)
             )
             .clickable(onClick = onClick)
@@ -709,13 +787,13 @@ private fun LibraryShortcutItem(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = iconTint,
+                tint = if (isSelected) dynamicTheme.primary else iconTint,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = label,
-                color = if (isSelected) NeonPurple else Color.White,
+                color = if (isSelected) dynamicTheme.primary else Color.White,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1
@@ -898,7 +976,8 @@ private fun GenerationCard(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(text = description, color = Color(0xFFA1A1AA), fontSize = 12.sp)
             }
-            Icon(imageVector = Icons.Rounded.ChevronRight, contentDescription = null, tint = NeonPurple)
+            val dynamicTheme = LocalDynamicTheme.current
+            Icon(imageVector = Icons.Rounded.ChevronRight, contentDescription = null, tint = dynamicTheme.primary)
         }
     }
 }
