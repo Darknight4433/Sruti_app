@@ -11,6 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -280,6 +282,12 @@ class FirebaseAuthRepository(private val context: Context) {
             val prefs = context.getSharedPreferences("sruti_auth_prefs", Context.MODE_PRIVATE)
             prefs.edit().clear().apply()
             _userProfile.value = mapUser(null)
+            try {
+                val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
+                GoogleSignIn.getClient(context, gso).signOut()
+            } catch (ge: Exception) {
+                Log.w(TAG, "GoogleSignIn client signOut warning: ${ge.message}")
+            }
             Log.d(TAG, "User signed out")
         } catch (e: Exception) {
             Log.e(TAG, "signOut failed: ${e.message}", e)

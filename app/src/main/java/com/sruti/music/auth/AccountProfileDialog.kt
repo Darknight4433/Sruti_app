@@ -37,6 +37,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.sruti.music.components.GlassBadge
 import com.sruti.music.theme.GlassWhite
+import com.sruti.music.theme.LocalDynamicTheme
 import com.sruti.music.theme.NeonPurple
 import kotlinx.coroutines.launch
 
@@ -55,6 +56,7 @@ fun AccountProfileDialog(
 
     val currentProfile by authRepo.userProfile.collectAsState()
     val activeProfile = if (currentProfile.isAuthenticated) currentProfile else userProfile
+    val dynamicTheme = LocalDynamicTheme.current
 
     val prefs = remember { context.getSharedPreferences("sruti_auth_prefs", Context.MODE_PRIVATE) }
     var webClientId by remember {
@@ -222,7 +224,15 @@ fun AccountProfileDialog(
             }
 
             val client = GoogleSignIn.getClient(context, gsoBuilder.build())
-            googleSignInLauncher.launch(client.signInIntent)
+            // Always sign out client first so Google Play Services is forced to display the Account Chooser dialog
+            client.signOut().addOnCompleteListener {
+                try {
+                    googleSignInLauncher.launch(client.signInIntent)
+                } catch (e: Exception) {
+                    android.util.Log.e("GoogleSignInDebug", "launch signInIntent error: ${e.message}", e)
+                    launchGoogleAccountFlow()
+                }
+            }
         } catch (e: Exception) {
             android.util.Log.e("GoogleSignInDebug", "launchGoogleSignIn setup error: ${e.message}", e)
             if (activity != null) {
@@ -249,12 +259,12 @@ fun AccountProfileDialog(
                 .background(
                     brush = Brush.verticalGradient(
                         listOf(
-                            Color(0xEE201538),
-                            Color(0xFA0F0B1E)
+                            dynamicTheme.surface.copy(alpha = 0.95f),
+                            dynamicTheme.darkBase.copy(alpha = 0.98f)
                         )
                     )
                 )
-                .border(1.dp, Color(0x35FFFFFF), RoundedCornerShape(26.dp))
+                .border(1.dp, dynamicTheme.primary.copy(alpha = 0.35f), RoundedCornerShape(26.dp))
                 .padding(22.dp)
         ) {
             Column(
@@ -301,7 +311,7 @@ fun AccountProfileDialog(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clip(CircleShape)
-                                    .border(2.5.dp, NeonPurple, CircleShape),
+                                    .border(2.5.dp, dynamicTheme.primary, CircleShape),
                                 contentScale = ContentScale.Crop
                             )
                         } else {
@@ -312,7 +322,7 @@ fun AccountProfileDialog(
                                     .clip(CircleShape)
                                     .background(
                                         Brush.linearGradient(
-                                            listOf(Color(0xFF8A2BE2), NeonPurple)
+                                            listOf(dynamicTheme.secondary, dynamicTheme.primary)
                                         )
                                     )
                                     .border(2.dp, Color(0x60FFFFFF), CircleShape),
@@ -334,7 +344,7 @@ fun AccountProfileDialog(
                                 .align(Alignment.BottomEnd)
                                 .size(24.dp)
                                 .clip(CircleShape)
-                                .background(NeonPurple)
+                                .background(dynamicTheme.primary)
                                 .border(1.5.dp, Color.White, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
@@ -419,7 +429,7 @@ fun AccountProfileDialog(
 
                     Text(
                         text = activeProfile.email ?: (if (activeProfile.isAnonymous) "Guest Account" else "Connected"),
-                        color = NeonPurple,
+                        color = dynamicTheme.primary,
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -452,8 +462,8 @@ fun AccountProfileDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0x25BA2DF7))
-                                .border(1.dp, NeonPurple.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+                                .background(dynamicTheme.primary.copy(alpha = 0.15f))
+                                .border(1.dp, dynamicTheme.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
                                 .clickable {
                                     onDismiss()
                                     onOpenSettings()
@@ -469,7 +479,7 @@ fun AccountProfileDialog(
                                     Icon(
                                         imageVector = Icons.Rounded.Tune,
                                         contentDescription = "Appearance",
-                                        tint = NeonPurple,
+                                        tint = dynamicTheme.primary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(modifier = Modifier.width(12.dp))
@@ -520,6 +530,14 @@ fun AccountProfileDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Sign Out", color = Color.White, fontWeight = FontWeight.SemiBold)
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Sruti Music • Made by Kavexa",
+                        color = GlassWhite.copy(alpha = 0.45f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
 
                 } else {
                     // ==========================================
@@ -781,7 +799,7 @@ fun AccountProfileDialog(
                                     }
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonPurple),
+                            colors = ButtonDefaults.buttonColors(containerColor = dynamicTheme.primary),
                             shape = RoundedCornerShape(14.dp),
                             enabled = !isLoading,
                             modifier = Modifier.fillMaxWidth().height(42.dp)
@@ -792,10 +810,18 @@ fun AccountProfileDialog(
                         TextButton(onClick = { isSignUpMode = !isSignUpMode }) {
                             Text(
                                 text = if (isSignUpMode) "Already have an account? Sign In" else "Don't have an account? Sign Up",
-                                color = NeonPurple,
+                                color = dynamicTheme.primary,
                                 fontSize = 12.sp
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Sruti Music • Made by Kavexa",
+                            color = GlassWhite.copy(alpha = 0.45f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }
@@ -810,18 +836,19 @@ private fun StatCard(
     modifier: Modifier = Modifier,
     isPink: Boolean = false
 ) {
+    val dynamicTheme = LocalDynamicTheme.current
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0x18FFFFFF))
-            .border(1.dp, Color(0x25FFFFFF), RoundedCornerShape(16.dp))
+            .border(1.dp, dynamicTheme.primary.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
             .padding(10.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = value,
-                color = if (isPink) Color(0xFFFF2A85) else Color.White,
+                color = if (isPink) dynamicTheme.accent else Color.White,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold
             )

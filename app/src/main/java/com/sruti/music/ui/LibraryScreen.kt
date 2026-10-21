@@ -39,6 +39,7 @@ import com.sruti.music.components.PlaylistArtwork
 import com.sruti.music.data.LocalAudioRepository
 import com.sruti.music.data.Track
 import com.sruti.music.data.db.PlaylistEntity
+import com.sruti.music.data.db.PlaylistSongEntity
 import com.sruti.music.data.db.SrutiDatabase
 import com.sruti.music.data.db.toTrack
 import com.sruti.music.auth.FirebaseAuthRepository
@@ -83,12 +84,18 @@ fun LibraryScreen(
     var localTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
     var downloadedTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
     val playlists by database.musicDao().getAllPlaylists().collectAsState(initial = emptyList())
+    val playlistSongEntities by database.musicDao().getAllPlaylistSongs().collectAsState(initial = emptyList())
     val favoriteEntities by database.musicDao().getAllFavorites().collectAsState(initial = emptyList())
     val historyEntities by database.musicDao().getRecentHistory().collectAsState(initial = emptyList())
 
     // Convert favorite entities to full Track objects
     val favoriteTracks = remember(favoriteEntities) {
         favoriteEntities.map { it.toTrack() }
+    }
+
+    // Convert playlist songs to tracks (songs that were explicitly added to playlists)
+    val playlistTracks = remember(playlistSongEntities) {
+        playlistSongEntities.map { it.toTrack() }
     }
 
     // Convert history entities to tracks
@@ -135,21 +142,71 @@ fun LibraryScreen(
         downloadedTracks = downloadManager.getDownloadedTracks()
     }
 
-    val recentCarousels = remember(favoriteTracks, downloadedTracks, localTracks) {
-        (favoriteTracks + downloadedTracks + localTracks).distinctBy { it.id }.take(10)
+    // Curated Library music: only includes music explicitly added (favorites, downloads, playlist tracks)
+    val recentCarousels = remember(favoriteTracks, downloadedTracks, playlistTracks) {
+        (favoriteTracks + downloadedTracks + playlistTracks).distinctBy { it.id }.take(10)
     }
     val topHistory = remember(historyTracks) { historyTracks.take(8) }
 
-    // Random Mix Trigger
+    // Smart Random Mix: Curates tracks based on the user's listened artists and favorite genres.
+    // Raw unadded device storage audio is strictly excluded.
     fun playRandomMix() {
-        val candidates = (favoriteTracks + downloadedTracks + localTracks).distinctBy { it.id }
-        if (candidates.isNotEmpty()) {
-            val shuffled = candidates.shuffled()
-            PlaybackStateManager.playTrack(shuffled.first(), shuffled)
-            Toast.makeText(context, "Playing Random Mix", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(context, "No songs in library yet to shuffle", Toast.LENGTH_SHORT).show()
+        val candidates = (favoriteTracks + downloadedTracks + playlistTracks).distinctBy { it.id }
+        if (candidates.isEmpty()) {
+            Toast.makeText(context, "No songs in library yet to mix. Like, download, or import music first.", Toast.LENGTH_SHORT).show()
+            return
         }
+
+        // Extract user's listening taste from recent playback history and favorite tracks
+        val heardArtists = (historyTracks + favoriteTracks).map { it.artist.lowercase().trim() }
+            .filter { it.isNotBlank() && it != "unknown artist" && it != "unknown" }
+            .toSet()
+
+        val heardKeywords = (historyTracks + favoriteTracks).flatMap { track ->
+            (track.title + " " + track.album + " " + track.artist).lowercase()
+                .split(" ", "-", "(", ")", "[", "]", "_", "/", "&", ",")
+                .map { it.trim() }
+                .filter { it.length > 3 && it !in setOf("from", "song", "audio", "music", "feat", "with", "unknown", "track", "remix") }
+        }.groupingBy { it }.eachCount()
+
+        // Score candidates based on affinity to the user's musical preferences
+        val scoredTracks = candidates.map { track ->
+            var score = 0
+            val trackArtist = track.artist.lowercase().trim()
+            val trackWords = (track.title + " " + track.album + " " + track.artist).lowercase()
+
+            if (trackArtist in heardArtists) {
+                score += 12
+            }
+            heardKeywords.forEach { (kw, count) ->
+                if (trackWords.contains(kw)) {
+                    score += (2 * count).coerceAtMost(6)
+                }
+            }
+            if (favoriteTracks.any { it.id == track.id }) {
+                score += 8
+            }
+            // Add subtle random jitter for variety while maintaining taste bias
+            val jitter = kotlin.random.Random.nextInt(0, 5)
+            Pair(track, score + jitter)
+        }
+
+        val sorted = scoredTracks.sortedByDescending { it.second }.map { it.first }
+        val smartMix = if (sorted.size > 1) {
+            val topPicks = sorted.take(15).shuffled()
+            val rest = sorted.drop(15).shuffled()
+            topPicks + rest
+        } else {
+            sorted
+        }
+
+        PlaybackStateManager.playTrack(smartMix.first(), smartMix)
+        val msg = if (heardArtists.isNotEmpty()) {
+            "Playing Smart Mix based on your genre & listening taste"
+        } else {
+            "Playing Curated Library Mix"
+        }
+        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
     }
 
     Column(
@@ -353,95 +410,11 @@ fun LibraryScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
             }
 
             // ==========================================
-            // Horizontal Carousel: Recently Added
-            // ==========================================
-            if (recentCarousels.isNotEmpty()) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Recently Added",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "See All",
-                            color = dynamicTheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.clickable { selectedShortcut = "Recently Added" }
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(recentCarousels) { track ->
-                            SquareArtworkCard(
-                                track = track,
-                                onClick = { onTrackClick(track, recentCarousels) }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-            }
-
-            // ==========================================
-            // Horizontal Carousel: Most Played (History)
-            // ==========================================
-            if (historyTracks.isNotEmpty()) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Most Played",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "See All",
-                            color = dynamicTheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.clickable { selectedShortcut = "Recently Played" }
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(topHistory) { track ->
-                            SquareArtworkCard(
-                                track = track,
-                                onClick = { onTrackClick(track, topHistory) }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-            }
-
-            // ==========================================
-            // Dynamic Active Section Based on Selected Shortcut
+            // DYNAMIC ACTIVE SECTION (Immediately below shortcuts)
             // ==========================================
             item {
                 Row(
@@ -449,14 +422,81 @@ fun LibraryScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = selectedShortcut,
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column {
+                        Text(
+                            text = selectedShortcut,
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        val countText = when (selectedShortcut) {
+                            "Liked Songs" -> "${favoriteTracks.size} liked songs"
+                            "Downloads" -> "${downloadedTracks.size} offline songs"
+                            "Device Music" -> "${localTracks.size} device tracks"
+                            "Playlists" -> "${playlists.size + 1} playlists"
+                            "Recently Played" -> "${historyTracks.size} recent songs"
+                            "Recently Added" -> "${(favoriteTracks + downloadedTracks + playlistTracks).distinctBy { it.id }.size} tracks"
+                            else -> ""
+                        }
+                        if (countText.isNotEmpty()) {
+                            Text(
+                                text = countText,
+                                color = Color(0xFFA1A1AA),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+
+                    val activeTracks = when (selectedShortcut) {
+                        "Liked Songs" -> favoriteTracks
+                        "Downloads" -> downloadedTracks
+                        "Device Music" -> localTracks
+                        "Recently Played" -> historyTracks
+                        "Recently Added" -> (favoriteTracks + downloadedTracks + playlistTracks).distinctBy { it.id }
+                        else -> emptyList()
+                    }
+
+                    if (activeTracks.isNotEmpty()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            IconButton(
+                                onClick = {
+                                    val shuffled = activeTracks.shuffled()
+                                    PlaybackStateManager.playTrack(shuffled.first(), shuffled)
+                                },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF181B1F))
+                                    .border(1.dp, Color(0x22FFFFFF), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Shuffle,
+                                    contentDescription = "Shuffle",
+                                    tint = dynamicTheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    PlaybackStateManager.playTrack(activeTracks.first(), activeTracks)
+                                },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(dynamicTheme.primary)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PlayArrow,
+                                    contentDescription = "Play All",
+                                    tint = PureBlack,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
             when (selectedShortcut) {
@@ -521,6 +561,88 @@ fun LibraryScreen(
                             )
                         }
                     } else {
+                        // Action Card: Import All Device Audio into Library / "Device Music" playlist
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF181B1F))
+                                    .border(1.dp, dynamicTheme.primary.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        scope.launch {
+                                            val existing = playlists.firstOrNull { it.name.equals("Device Music", ignoreCase = true) }
+                                            val playlistId = existing?.id ?: database.musicDao().insertPlaylist(
+                                                PlaylistEntity(name = "Device Music")
+                                            )
+                                            val existingSongs = database.musicDao().getSongsForPlaylist(playlistId).firstOrNull() ?: emptyList()
+                                            val existingIds = existingSongs.map { it.trackId }.toSet()
+                                            val newTracks = localTracks.filter { it.id !in existingIds }
+                                            if (newTracks.isEmpty()) {
+                                                Toast.makeText(context, "All device songs already imported into 'Device Music' playlist", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                val entities = newTracks.mapIndexed { idx, track ->
+                                                    PlaylistSongEntity(
+                                                        playlistId = playlistId,
+                                                        trackId = track.id,
+                                                        title = track.title,
+                                                        artist = track.artist,
+                                                        album = track.album,
+                                                        durationSeconds = track.durationSeconds,
+                                                        mediaUriString = track.mediaUriString,
+                                                        artworkUriString = track.artworkUriString,
+                                                        artworkResId = track.artworkResId,
+                                                        sourceId = "local",
+                                                        sortOrder = existingSongs.size + idx,
+                                                        addedAt = System.currentTimeMillis()
+                                                    )
+                                                }
+                                                database.musicDao().insertPlaylistSongs(entities)
+                                                Toast.makeText(context, "Imported ${entities.size} songs from device into library!", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(dynamicTheme.primary.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Download,
+                                        contentDescription = null,
+                                        tint = dynamicTheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Import All Device Audio into Library",
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Add all ${localTracks.size} files to 'Device Music' playlist",
+                                        color = dynamicTheme.primary,
+                                        fontSize = 11.5.sp
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Rounded.ChevronRight,
+                                    contentDescription = null,
+                                    tint = Color(0xFFA1A1AA)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+
                         items(localTracks) { track ->
                             LibraryTrackRow(
                                 track = track,
@@ -661,13 +783,13 @@ fun LibraryScreen(
                 }
 
                 "Recently Added" -> {
-                    val allAdded = (favoriteTracks + downloadedTracks + localTracks).distinctBy { it.id }
+                    val allAdded = (favoriteTracks + downloadedTracks + playlistTracks).distinctBy { it.id }
                     if (allAdded.isEmpty()) {
                         item {
                             EmptyLibraryState(
                                 icon = Icons.Rounded.StarBorder,
                                 title = "Nothing added yet",
-                                subtitle = "Songs you download or favorite will be listed here."
+                                subtitle = "Songs you download, favorite, or add to playlists will be listed here."
                             )
                         }
                     } else {
@@ -693,6 +815,85 @@ fun LibraryScreen(
                             GenerationCard(title = "2010s Modern Hits", description = "Viral anthems and electronic beats") {
                                 onSearchClick()
                             }
+                        }
+                    }
+                }
+            }
+
+            // ==========================================
+            // Horizontal Carousels (Placed below active shortcut section)
+            // ==========================================
+            if (recentCarousels.isNotEmpty() && selectedShortcut != "Recently Added") {
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Recently Added",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "See All",
+                            color = dynamicTheme.primary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { selectedShortcut = "Recently Added" }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(recentCarousels) { track ->
+                            SquareArtworkCard(
+                                track = track,
+                                onClick = { onTrackClick(track, recentCarousels) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (topHistory.isNotEmpty() && selectedShortcut != "Recently Played") {
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Most Played",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "See All",
+                            color = dynamicTheme.primary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { selectedShortcut = "Recently Played" }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(topHistory) { track ->
+                            SquareArtworkCard(
+                                track = track,
+                                onClick = { onTrackClick(track, topHistory) }
+                            )
                         }
                     }
                 }

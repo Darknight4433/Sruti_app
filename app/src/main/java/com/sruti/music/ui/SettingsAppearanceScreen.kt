@@ -697,6 +697,38 @@ fun SettingsAppearanceScreen(
                     }
                 }
             }
+
+            // App Attribution & Branding
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Sruti Music",
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "v1.1.0 • Made by Kavexa",
+                        color = dynamicTheme.primary,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Crafted for pure, immersive audio listening",
+                        color = GlassWhite.copy(alpha = 0.5f),
+                        fontSize = 11.sp
+                    )
+                }
+            }
         }
     }
 

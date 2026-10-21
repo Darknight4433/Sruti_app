@@ -38,6 +38,19 @@ fun AddToPlaylistDialog(
     track: Track,
     onDismiss: () -> Unit
 ) {
+    AddToPlaylistDialog(tracks = listOf(track), onDismiss = onDismiss)
+}
+
+@Composable
+fun AddToPlaylistDialog(
+    tracks: List<Track>,
+    onDismiss: () -> Unit
+) {
+    if (tracks.isEmpty()) {
+        onDismiss()
+        return
+    }
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val database = remember { SrutiDatabase.getDatabase(context) }
@@ -46,16 +59,17 @@ fun AddToPlaylistDialog(
     var playlists by remember { mutableStateOf<List<PlaylistEntity>>(emptyList()) }
     var existingPlaylistIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var showCreateDialog by remember { mutableStateOf(false) }
-    var confirmationMessage by remember { mutableStateOf<String?>(null) }
 
-    // Load playlists and check which playlists already contain this track
-    LaunchedEffect(track.id) {
+    val trackIds = remember(tracks) { tracks.map { it.id }.toSet() }
+
+    // Load playlists and check which playlists already contain these tracks
+    LaunchedEffect(trackIds) {
         val allPlaylists = database.musicDao().getAllPlaylists().first()
         playlists = allPlaylists
         val containedSet = mutableSetOf<Long>()
         for (pl in allPlaylists) {
             val songs = database.musicDao().getSongsForPlaylist(pl.id).first()
-            if (songs.any { it.trackId == track.id }) {
+            if (songs.any { it.trackId in trackIds }) {
                 containedSet.add(pl.id)
             }
         }
@@ -68,24 +82,25 @@ fun AddToPlaylistDialog(
             onPlaylistCreated = { newPlaylist ->
                 showCreateDialog = false
                 scope.launch {
-                    val count = database.musicDao().getSongsForPlaylist(newPlaylist.id).first().size
-                    database.musicDao().insertPlaylistSong(
+                    val currentCount = database.musicDao().getSongsForPlaylist(newPlaylist.id).first().size
+                    val entities = tracks.mapIndexed { idx, t ->
                         PlaylistSongEntity(
                             playlistId = newPlaylist.id,
-                            trackId = track.id,
-                            title = track.title,
-                            artist = track.artist,
-                            album = track.album,
-                            durationSeconds = track.durationSeconds,
-                            mediaUriString = track.mediaUriString,
-                            artworkUriString = track.artworkUriString,
-                            artworkResId = track.artworkResId,
-                            sourceId = track.source,
-                            sortOrder = count,
+                            trackId = t.id,
+                            title = t.title,
+                            artist = t.artist,
+                            album = t.album,
+                            durationSeconds = t.durationSeconds,
+                            mediaUriString = t.mediaUriString,
+                            artworkUriString = t.artworkUriString,
+                            artworkResId = t.artworkResId,
+                            sourceId = t.source,
+                            sortOrder = currentCount + idx,
                             addedAt = System.currentTimeMillis()
                         )
-                    )
-                    Toast.makeText(context, "Added to new playlist!", Toast.LENGTH_SHORT).show()
+                    }
+                    database.musicDao().insertPlaylistSongs(entities)
+                    Toast.makeText(context, "Added ${entities.size} songs to new playlist!", Toast.LENGTH_SHORT).show()
                     onDismiss()
                 }
             }
@@ -119,7 +134,7 @@ fun AddToPlaylistDialog(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = track.title,
+                            text = if (tracks.size == 1) tracks.first().title else "${tracks.size} songs selected",
                             color = dynamicTheme.primary,
                             fontSize = 12.5.sp,
                             maxLines = 1
@@ -206,29 +221,31 @@ fun AddToPlaylistDialog(
                                         RoundedCornerShape(14.dp)
                                     )
                                     .clickable {
-                                        if (isAlreadyAdded) {
+                                        if (isAlreadyAdded && tracks.size == 1) {
                                             Toast.makeText(context, "Already in '${pl.name}'", Toast.LENGTH_SHORT).show()
                                         } else {
                                             scope.launch {
                                                 val currentSongs = database.musicDao().getSongsForPlaylist(pl.id).first()
-                                                database.musicDao().insertPlaylistSong(
+                                                val entities = tracks.mapIndexed { idx, t ->
                                                     PlaylistSongEntity(
                                                         playlistId = pl.id,
-                                                        trackId = track.id,
-                                                        title = track.title,
-                                                        artist = track.artist,
-                                                        album = track.album,
-                                                        durationSeconds = track.durationSeconds,
-                                                        mediaUriString = track.mediaUriString,
-                                                        artworkUriString = track.artworkUriString,
-                                                        artworkResId = track.artworkResId,
-                                                        sourceId = track.source,
-                                                        sortOrder = currentSongs.size,
+                                                        trackId = t.id,
+                                                        title = t.title,
+                                                        artist = t.artist,
+                                                        album = t.album,
+                                                        durationSeconds = t.durationSeconds,
+                                                        mediaUriString = t.mediaUriString,
+                                                        artworkUriString = t.artworkUriString,
+                                                        artworkResId = t.artworkResId,
+                                                        sourceId = t.source,
+                                                        sortOrder = currentSongs.size + idx,
                                                         addedAt = System.currentTimeMillis()
                                                     )
-                                                )
+                                                }
+                                                database.musicDao().insertPlaylistSongs(entities)
                                                 existingPlaylistIds = existingPlaylistIds + pl.id
-                                                Toast.makeText(context, "Added to '${pl.name}'!", Toast.LENGTH_SHORT).show()
+                                                val msg = if (entities.size == 1) "Added to '${pl.name}'!" else "Added ${entities.size} songs to '${pl.name}'!"
+                                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                                 onDismiss()
                                             }
                                         }

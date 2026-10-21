@@ -78,6 +78,25 @@ data class PlaylistSongEntity(
     val addedAt: Long = System.currentTimeMillis()
 )
 
+fun PlaylistSongEntity.toTrack(): com.sruti.music.data.Track {
+    val m = durationSeconds / 60
+    val s = durationSeconds % 60
+    val dur = if (durationSeconds > 0) String.format("%d:%02d", m, s) else "3:30"
+    return com.sruti.music.data.Track(
+        id = trackId,
+        title = title.ifBlank { "Unknown Title" },
+        artist = artist.ifBlank { "Unknown Artist" },
+        album = album,
+        durationText = dur,
+        durationSeconds = durationSeconds,
+        artworkResId = if (artworkResId != 0) artworkResId else com.sruti.music.R.drawable.sruti_artwork_fallback,
+        artworkUriString = artworkUriString,
+        mediaUriString = mediaUriString,
+        isLocal = sourceId == "local",
+        source = sourceId
+    )
+}
+
 @Entity(tableName = "queue_snapshot")
 data class QueueSnapshotEntity(
     @PrimaryKey val orderIndex: Int,

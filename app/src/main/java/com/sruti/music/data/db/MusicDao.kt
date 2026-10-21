@@ -74,6 +74,9 @@ interface MusicDao {
     @Query("SELECT * FROM playlist_songs WHERE playlistId = :playlistId ORDER BY sortOrder ASC")
     fun getSongsForPlaylist(playlistId: Long): Flow<List<PlaylistSongEntity>>
 
+    @Query("SELECT * FROM playlist_songs")
+    fun getAllPlaylistSongs(): Flow<List<PlaylistSongEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlaylistSong(song: PlaylistSongEntity)
 
