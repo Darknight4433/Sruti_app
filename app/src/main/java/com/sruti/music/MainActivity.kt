@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val prefsRepo = remember { UserPreferencesRepository(applicationContext) }
-            val themeId by prefsRepo.selectedThemeId.collectAsState(initial = "midnight_neon")
+            val themeId by prefsRepo.selectedThemeId.collectAsState(initial = "pure_black")
 
             SrutiTheme {
                 MainScreen(themeId = themeId)

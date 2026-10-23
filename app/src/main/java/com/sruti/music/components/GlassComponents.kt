@@ -88,14 +88,16 @@ fun AmbientBackground(
     )
 
     val currentTheme = remember(animPrimary, animSecondary, animAccent, animDark, backgroundStyle, themeId) {
-        val effectivePrimary = if (backgroundStyle == "dynamic") animPrimary else themePrimary(themeId)
-        val effectiveSecondary = if (backgroundStyle == "dynamic") animSecondary else themeSecondary(themeId)
-        val effectiveAccent = if (backgroundStyle == "dynamic") animAccent else themeAccent(themeId)
+        val hasPlayingTrack = currentTrack != null && currentTrack.id.isNotBlank() && dynamicData.blurredArtwork != null
+        val effectivePrimary = if (backgroundStyle == "dynamic" && hasPlayingTrack) animPrimary else themePrimary(themeId)
+        val effectiveSecondary = if (backgroundStyle == "dynamic" && hasPlayingTrack) animSecondary else themeSecondary(themeId)
+        val effectiveAccent = if (backgroundStyle == "dynamic" && hasPlayingTrack) animAccent else themeAccent(themeId)
+        val effectiveDark = if (backgroundStyle == "dynamic" && hasPlayingTrack) animDark else themeDarkBase(themeId)
         DynamicThemeColors(
             primary = effectivePrimary,
             secondary = effectiveSecondary,
             accent = effectiveAccent,
-            darkBase = animDark,
+            darkBase = effectiveDark,
             surface = Color(0x18FFFFFF),
             surfaceBorder = effectivePrimary.copy(alpha = 0.32f),
             glow = effectivePrimary.copy(alpha = 0.40f),
@@ -110,6 +112,13 @@ fun AmbientBackground(
     }
 
     val gradientStops = when (themeId) {
+        "pure_black" -> arrayOf(
+            0.00f to Color(0xFF14161A),
+            0.25f to Color(0xFF0F1014),
+            0.60f to Color(0xFF0A0B0E),
+            0.85f to Color(0xFF050507),
+            1.00f to Color(0xFF000000)
+        )
         "cyber_cyan" -> arrayOf(
             0.00f to Color(0xFF007799),
             0.18f to Color(0xFF004D66),
@@ -134,13 +143,20 @@ fun AmbientBackground(
             0.88f to Color(0xFF0B0B10),
             1.00f to Color(0xFF07070A)
         )
+        "midnight_neon" -> arrayOf(
+            0.00f to Color(0xFF6E2EA3),
+            0.18f to Color(0xFF4A1E75),
+            0.42f to Color(0xFF2B144A),
+            0.68f to Color(0xFF1A0E2E),
+            0.88f to Color(0xFF0E071A),
+            1.00f to Color(0xFF07040D)
+        )
         else -> arrayOf(
-            0.00f to Color(0xFF9E4ECB),
-            0.18f to Color(0xFF6E2EA3),
-            0.42f to Color(0xFF381F6D),
-            0.68f to Color(0xFF1B2366),
-            0.88f to Color(0xFF0F1238),
-            1.00f to Color(0xFF0A0715)
+            0.00f to Color(0xFF14161A),
+            0.25f to Color(0xFF0F1014),
+            0.60f to Color(0xFF0A0B0E),
+            0.85f to Color(0xFF050507),
+            1.00f to Color(0xFF000000)
         )
     }
 
@@ -171,7 +187,7 @@ fun AmbientBackground(
                     "solid_dark" -> {
                         drawRect(
                             brush = Brush.verticalGradient(
-                                listOf(Color(0xFF141122), Color(0xFF0A0814))
+                                listOf(Color(0xFF0D0E12), Color(0xFF000000))
                             ),
                             size = size
                         )
@@ -235,54 +251,20 @@ fun AmbientBackground(
                             // 5. Protective dark translucent scrim ensuring 100% legibility
                             drawRect(
                                 brush = Brush.verticalGradient(
-                                    0.00f to Color(0xFF0A0715).copy(alpha = scrimTopAlpha),
+                                    0.00f to Color(0xFF000000).copy(alpha = scrimTopAlpha),
                                     0.40f to Color.Transparent,
-                                    1.00f to Color(0xFF0A0715).copy(alpha = scrimBottomAlpha)
+                                    1.00f to Color(0xFF000000).copy(alpha = scrimBottomAlpha)
                                 ),
                                 size = size
                             )
                         } else {
-                            // Dynamic Palette Gradient when no artwork bitmap
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    0.00f to animPrimary,
-                                    0.22f to animSecondary,
-                                    0.55f to Color(0xFF16102C).copy(alpha = 0.85f),
-                                    0.82f to Color(0xFF0E0A1D),
-                                    1.00f to animDark
-                                ),
-                                size = size
-                            )
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        animAccent.copy(alpha = 0.60f),
-                                        animSecondary.copy(alpha = 0.28f),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(w * 0.50f, h * 0.12f),
-                                    radius = w * 0.90f
-                                ),
-                                radius = w * 0.90f,
-                                center = Offset(w * 0.50f, h * 0.12f)
-                            )
-                            drawCircle(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        animPrimary.copy(alpha = 0.45f),
-                                        Color.Transparent
-                                    ),
-                                    center = Offset(w * 0.85f, h * 0.55f),
-                                    radius = w * 0.75f
-                                ),
-                                radius = w * 0.75f,
-                                center = Offset(w * 0.85f, h * 0.55f)
-                            )
+                            // Dark Canvas Backdrop when no artwork bitmap
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     listOf(
-                                        Color(0xFF0A0715).copy(alpha = scrimTopAlpha),
-                                        Color(0xFF0A0715).copy(alpha = scrimBottomAlpha)
+                                        Color(0xFF14161C),
+                                        Color(0xFF0B0C10),
+                                        Color(0xFF000000)
                                     )
                                 ),
                                 size = size
@@ -298,49 +280,51 @@ fun AmbientBackground(
                             size = size
                         )
 
-                        // 2. Radiant Violet/Magenta Ambient Bloom at Top-Center
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color(0x95BA2DF7),
-                                    Color(0x458E20E0),
-                                    Color(0x008E20E0)
-                            ),
-                            center = Offset(w * 0.48f, h * 0.10f),
-                            radius = w * 0.85f
-                        ),
-                        radius = w * 0.85f,
-                        center = Offset(w * 0.48f, h * 0.10f)
-                    )
+                        if (themeId == "midnight_neon" || themeId == "aurora") {
+                            // 2. Radiant Violet/Magenta Ambient Bloom at Top-Center
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0x95BA2DF7),
+                                        Color(0x458E20E0),
+                                        Color(0x008E20E0)
+                                    ),
+                                    center = Offset(w * 0.48f, h * 0.10f),
+                                    radius = w * 0.85f
+                                ),
+                                radius = w * 0.85f,
+                                center = Offset(w * 0.48f, h * 0.10f)
+                            )
 
-                    // 3. Electric Blue Ambient Bloom at Mid-Right
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0x553D5CFF),
-                                Color(0x20243AB5),
-                                Color(0x00243AB5)
-                            ),
-                            center = Offset(w * 0.88f, h * 0.52f),
-                            radius = w * 0.80f
-                        ),
-                        radius = w * 0.80f,
-                        center = Offset(w * 0.88f, h * 0.52f)
-                    )
+                            // 3. Electric Blue Ambient Bloom at Mid-Right
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0x553D5CFF),
+                                        Color(0x20243AB5),
+                                        Color(0x00243AB5)
+                                    ),
+                                    center = Offset(w * 0.88f, h * 0.52f),
+                                    radius = w * 0.80f
+                                ),
+                                radius = w * 0.80f,
+                                center = Offset(w * 0.88f, h * 0.52f)
+                            )
 
-                    // 4. Subtle Sruti Purple brand accent bloom in lower-left
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0x18BA2DF7),
-                                Color(0x00BA2DF7)
-                            ),
-                            center = Offset(w * 0.15f, h * 0.78f),
-                            radius = w * 0.60f
-                        ),
-                        radius = w * 0.60f,
-                        center = Offset(w * 0.15f, h * 0.78f)
-                    )
+                            // 4. Subtle Sruti Purple brand accent bloom in lower-left
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0x18BA2DF7),
+                                        Color(0x00BA2DF7)
+                                    ),
+                                    center = Offset(w * 0.15f, h * 0.78f),
+                                    radius = w * 0.60f
+                                ),
+                                radius = w * 0.60f,
+                                center = Offset(w * 0.15f, h * 0.78f)
+                            )
+                        }
                 }
             }
         }

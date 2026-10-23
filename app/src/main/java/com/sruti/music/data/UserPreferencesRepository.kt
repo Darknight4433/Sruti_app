@@ -67,7 +67,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     val selectedThemeId: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.SELECTED_THEME_ID] ?: "midnight_neon"
+        preferences[PreferencesKeys.SELECTED_THEME_ID] ?: "pure_black"
     }
 
     suspend fun saveSelectedThemeId(themeId: String) {

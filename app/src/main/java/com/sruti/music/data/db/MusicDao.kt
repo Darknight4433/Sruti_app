@@ -16,6 +16,9 @@ interface MusicDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFavorite(favorite: FavoriteEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertFavorites(favorites: List<FavoriteEntity>)
+
     @Query("DELETE FROM favorites WHERE trackId = :trackId")
     suspend fun deleteFavorite(trackId: String)
 

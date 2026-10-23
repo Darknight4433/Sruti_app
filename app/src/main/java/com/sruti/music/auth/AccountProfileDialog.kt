@@ -256,15 +256,8 @@ fun AccountProfileDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(26.dp))
-                .background(
-                    brush = Brush.verticalGradient(
-                        listOf(
-                            dynamicTheme.surface.copy(alpha = 0.95f),
-                            dynamicTheme.darkBase.copy(alpha = 0.98f)
-                        )
-                    )
-                )
-                .border(1.dp, dynamicTheme.primary.copy(alpha = 0.35f), RoundedCornerShape(26.dp))
+                .background(Color(0xFF0D0E12))
+                .border(1.dp, Color(0x35FFFFFF), RoundedCornerShape(26.dp))
                 .padding(22.dp)
         ) {
             Column(
@@ -462,8 +455,8 @@ fun AccountProfileDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(dynamicTheme.primary.copy(alpha = 0.15f))
-                                .border(1.dp, dynamicTheme.primary.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                                .background(Color(0xFF15171C))
+                                .border(1.dp, Color(0x28FFFFFF), RoundedCornerShape(14.dp))
                                 .clickable {
                                     onDismiss()
                                     onOpenSettings()
@@ -514,12 +507,12 @@ fun AccountProfileDialog(
                         onClick = {
                             authRepo.signOut()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0x30FFFFFF)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A1D24)),
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(46.dp)
-                            .border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(14.dp))
+                            .border(1.dp, Color(0x30FFFFFF), RoundedCornerShape(14.dp))
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Logout,
@@ -840,8 +833,8 @@ private fun StatCard(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0x18FFFFFF))
-            .border(1.dp, dynamicTheme.primary.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
+            .background(Color(0xFF15171C))
+            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(16.dp))
             .padding(10.dp),
         contentAlignment = Alignment.Center
     ) {

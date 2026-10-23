@@ -124,8 +124,15 @@ fun SettingsAppearanceScreen(
     val themes = remember {
         listOf(
             ThemeItem(
+                id = "pure_black",
+                name = "Pure Black (Default)",
+                description = "Pitch black OLED surfaces, clean white accents, zero eye strain and maximum contrast.",
+                primaryColor = Color(0xFFFFFFFF),
+                secondaryColor = Color(0xFF71717A)
+            ),
+            ThemeItem(
                 id = "midnight_neon",
-                name = "Midnight Neon (Default)",
+                name = "Midnight Neon",
                 description = "Midnight navy, rich violet/blue gradients and translucent glassmorphism.",
                 primaryColor = NeonPurple,
                 secondaryColor = Color(0xFF4169F5)

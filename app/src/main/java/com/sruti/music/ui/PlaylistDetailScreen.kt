@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -456,7 +457,7 @@ fun PlaylistDetailScreen(
                         fontSize = 13.5.sp
                     )
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         TextButton(
                             onClick = {
                                 selectedTrackIds = if (selectedTrackIds.size == sortedSongs.size) emptySet()
@@ -472,25 +473,69 @@ fun PlaylistDetailScreen(
                             )
                         }
 
-                        IconButton(
+                        Button(
                             onClick = {
                                 isSelectionMode = false
                                 selectedTrackIds = emptySet()
                             },
-                            modifier = Modifier.size(28.dp)
+                            colors = ButtonDefaults.buttonColors(containerColor = dynamicTheme.primary),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(30.dp)
                         ) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Close", tint = GlassWhite, modifier = Modifier.size(18.dp))
+                            Text(
+                                text = "Done",
+                                color = if (dynamicTheme.primary.luminance() > 0.55f) Color.Black else Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Actions row: Download Selected, Queue Selected, Add to Playlist, Remove Selected
+                // Actions row: Like, Download, Queue, Playlist, Remove
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    // Like Selected
+                    Button(
+                        onClick = {
+                            val selectedSongs = sortedSongs.filter { selectedTrackIds.contains(it.trackId) }
+                            scope.launch {
+                                val entities = selectedSongs.map { song ->
+                                    com.sruti.music.data.db.FavoriteEntity(
+                                        trackId = song.trackId,
+                                        title = song.title,
+                                        artist = song.artist,
+                                        album = song.album,
+                                        durationSeconds = song.durationSeconds,
+                                        mediaUriString = song.mediaUriString,
+                                        artworkUriString = song.artworkUriString,
+                                        artworkResId = song.artworkResId,
+                                        isLocal = song.sourceId == "local",
+                                        addedAt = System.currentTimeMillis()
+                                    )
+                                }
+                                database.musicDao().insertFavorites(entities)
+                                Toast.makeText(context, "Added ${entities.size} songs to Liked Songs ❤️", Toast.LENGTH_SHORT).show()
+                                isSelectionMode = false
+                                selectedTrackIds = emptySet()
+                            }
+                        },
+                        enabled = selectedTrackIds.isNotEmpty(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0x35E91E63)),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                        modifier = Modifier.weight(1f).height(38.dp)
+                    ) {
+                        Icon(Icons.Rounded.Favorite, contentDescription = null, tint = Color(0xFFFF4081), modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("Like", color = Color.White, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                    }
+
                     // Download Selected
                     Button(
                         onClick = {
@@ -509,12 +554,13 @@ fun PlaylistDetailScreen(
                         enabled = selectedTrackIds.isNotEmpty(),
                         colors = ButtonDefaults.buttonColors(containerColor = dynamicTheme.primary),
                         shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                         modifier = Modifier.weight(1f).height(38.dp)
                     ) {
-                        Icon(Icons.Rounded.Download, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text("Download", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        val dlContentColor = if (dynamicTheme.primary.luminance() > 0.55f) Color.Black else Color.White
+                        Icon(Icons.Rounded.Download, contentDescription = null, tint = dlContentColor, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("Download", color = dlContentColor, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
                     }
 
                     // Add to Queue
@@ -531,12 +577,12 @@ fun PlaylistDetailScreen(
                         enabled = selectedTrackIds.isNotEmpty(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0x35FFFFFF)),
                         shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                         modifier = Modifier.weight(1f).height(38.dp)
                     ) {
-                        Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text("Queue", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.AutoMirrored.Rounded.QueueMusic, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("Queue", color = Color.White, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
                     }
 
                     // Add to Playlist
@@ -552,36 +598,38 @@ fun PlaylistDetailScreen(
                         enabled = selectedTrackIds.isNotEmpty(),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0x35FFFFFF)),
                         shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                         modifier = Modifier.weight(1f).height(38.dp)
                     ) {
-                        Icon(Icons.Rounded.PlaylistAdd, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text("Playlist", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Rounded.PlaylistAdd, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text("Playlist", color = Color.White, fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
                     }
 
                     // Remove Selected
-                    Button(
-                        onClick = {
-                            val toRemove = selectedTrackIds.toSet()
-                            scope.launch {
-                                toRemove.forEach { trackId ->
-                                    database.musicDao().removeSongFromPlaylist(playlist.id, trackId)
+                    if (playlist.id != -999L) {
+                        Button(
+                            onClick = {
+                                val toRemove = selectedTrackIds.toSet()
+                                scope.launch {
+                                    toRemove.forEach { trackId ->
+                                        database.musicDao().removeSongFromPlaylist(playlist.id, trackId)
+                                    }
+                                    Toast.makeText(context, "Removed ${toRemove.size} songs", Toast.LENGTH_SHORT).show()
+                                    isSelectionMode = false
+                                    selectedTrackIds = emptySet()
                                 }
-                                Toast.makeText(context, "Removed ${toRemove.size} songs", Toast.LENGTH_SHORT).show()
-                                isSelectionMode = false
-                                selectedTrackIds = emptySet()
-                            }
-                        },
-                        enabled = selectedTrackIds.isNotEmpty(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0x30FF5252)),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
-                        modifier = Modifier.weight(1f).height(38.dp)
-                    ) {
-                        Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = Color(0xFFFF8A80), modifier = Modifier.size(15.dp))
-                        Spacer(modifier = Modifier.width(3.dp))
-                        Text("Remove", color = Color(0xFFFF8A80), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            },
+                            enabled = selectedTrackIds.isNotEmpty(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0x30FF5252)),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                            modifier = Modifier.weight(1f).height(38.dp)
+                        ) {
+                            Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = Color(0xFFFF8A80), modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text("Remove", color = Color(0xFFFF8A80), fontSize = 10.5.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -668,6 +716,9 @@ fun PlaylistDetailScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Play Button
+            val isLightPrimary = dynamicTheme.primary.luminance() > 0.55f
+            val playContentColor = if (isLightPrimary) Color.Black else Color.White
+
             Button(
                 onClick = {
                     if (playableSongs.isNotEmpty()) {
@@ -677,24 +728,21 @@ fun PlaylistDetailScreen(
                     }
                 },
                 enabled = playableSongs.isNotEmpty(),
-                colors = ButtonDefaults.buttonColors(containerColor = dynamicTheme.primary),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = dynamicTheme.primary,
+                    contentColor = playContentColor,
+                    disabledContainerColor = Color(0x35FFFFFF),
+                    disabledContentColor = Color(0x60FFFFFF)
+                ),
                 shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(46.dp)
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(46.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.PlayArrow,
-                    contentDescription = "Play",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Play All",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
+                    contentDescription = "Play All",
+                    tint = if (playableSongs.isNotEmpty()) playContentColor else Color(0x60FFFFFF),
+                    modifier = Modifier.size(26.dp)
                 )
             }
 

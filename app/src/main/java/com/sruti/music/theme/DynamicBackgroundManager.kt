@@ -36,10 +36,10 @@ import java.util.concurrent.TimeUnit
 private const val TAG = "DynamicBackgroundMgr"
 
 data class DynamicArtworkPalette(
-    val primaryColor: Color = Color(0xFFA855F7),     // Radiant primary accent
-    val secondaryColor: Color = Color(0xFF381F6D),   // Rich secondary ambient
-    val accentColor: Color = Color(0xFF38BDF8),      // Luminous highlight accent
-    val darkBaseColor: Color = Color(0xFF0A0715)     // Deep obsidian floor
+    val primaryColor: Color = Color.White,           // Crisp white primary accent by default
+    val secondaryColor: Color = Color(0xFF71717A),   // Neutral secondary ambient
+    val accentColor: Color = Color(0xFFE2E8F0),      // Luminous highlight accent
+    val darkBaseColor: Color = PureBlack             // Deep pure black floor
 )
 
 data class DynamicArtworkData(
@@ -398,14 +398,14 @@ object DynamicBackgroundManager {
 
         // Curated harmonic palette pairs
         val colorPairs = listOf(
-            Pair(0xFFA855F7.toInt(), 0xFF3B82F6.toInt()), // Neon Violet & Electric Blue
-            Pair(0xFFEC4899.toInt(), 0xFF8B5CF6.toInt()), // Vivid Pink & Purple
-            Pair(0xFF06B6D4.toInt(), 0xFF3B82F6.toInt()), // Cyan & Ocean Blue
-            Pair(0xFFF59E0B.toInt(), 0xFFEF4444.toInt()), // Amber & Sunset Red
-            Pair(0xFF10B981.toInt(), 0xFF06B6D4.toInt()), // Emerald & Aqua
-            Pair(0xFF8B5CF6.toInt(), 0xFFF43F5E.toInt()), // Deep Purple & Rose
-            Pair(0xFF6366F1.toInt(), 0xFFA855F7.toInt()), // Indigo & Radiant Violet
-            Pair(0xFF14B8A6.toInt(), 0xFF6366F1.toInt())  // Teal & Indigo
+            Pair(0xFF27272A.toInt(), 0xFF09090B.toInt()), // Obsidian Monochrome
+            Pair(0xFF0284C7.toInt(), 0xFF0B132B.toInt()), // Deep Sapphire & Midnight
+            Pair(0xFF059669.toInt(), 0xFF064E3B.toInt()), // Emerald & Forest
+            Pair(0xFF0D9488.toInt(), 0xFF115E59.toInt()), // Dark Teal
+            Pair(0xFF4F46E5.toInt(), 0xFF1E1B4B.toInt()), // Indigo Night
+            Pair(0xFFD97706.toInt(), 0xFF78350F.toInt()), // Warm Amber
+            Pair(0xFFE11D48.toInt(), 0xFF881337.toInt()), // Deep Crimson
+            Pair(0xFF7C3AED.toInt(), 0xFF3B0764.toInt())  // Velvet Violet
         )
 
         val pairIndex = Math.abs(hash) % colorPairs.size
