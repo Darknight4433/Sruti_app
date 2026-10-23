@@ -111,15 +111,12 @@ fun AmbientBackground(
         else -> Triple(0.20f, 0.52f, 0.78f) // "balanced" default
     }
 
-    val gradientStops = when (themeId) {
-        "pure_black" -> arrayOf(
-            0.00f to Color(0xFF14161A),
-            0.25f to Color(0xFF0F1014),
-            0.60f to Color(0xFF0A0B0E),
-            0.85f to Color(0xFF050507),
+    val gradientStops = when {
+        themeId == "pure_black" || themeId.startsWith("custom_") -> arrayOf(
+            0.00f to Color(0xFF000000),
             1.00f to Color(0xFF000000)
         )
-        "cyber_cyan" -> arrayOf(
+        themeId == "cyber_cyan" -> arrayOf(
             0.00f to Color(0xFF007799),
             0.18f to Color(0xFF004D66),
             0.42f to Color(0xFF002E40),
@@ -127,7 +124,7 @@ fun AmbientBackground(
             0.88f to Color(0xFF08121C),
             1.00f to Color(0xFF050B12)
         )
-        "aurora" -> arrayOf(
+        themeId == "aurora" -> arrayOf(
             0.00f to Color(0xFFC71585),
             0.18f to Color(0xFF8B008B),
             0.42f to Color(0xFF4B0082),
@@ -135,7 +132,7 @@ fun AmbientBackground(
             0.88f to Color(0xFF190430),
             1.00f to Color(0xFF0A0214)
         )
-        "minimal_dark" -> arrayOf(
+        themeId == "minimal_dark" -> arrayOf(
             0.00f to Color(0xFF282834),
             0.18f to Color(0xFF1E1E28),
             0.42f to Color(0xFF161620),
@@ -143,7 +140,7 @@ fun AmbientBackground(
             0.88f to Color(0xFF0B0B10),
             1.00f to Color(0xFF07070A)
         )
-        "midnight_neon" -> arrayOf(
+        themeId == "midnight_neon" -> arrayOf(
             0.00f to Color(0xFF6E2EA3),
             0.18f to Color(0xFF4A1E75),
             0.42f to Color(0xFF2B144A),
@@ -152,10 +149,7 @@ fun AmbientBackground(
             1.00f to Color(0xFF07040D)
         )
         else -> arrayOf(
-            0.00f to Color(0xFF14161A),
-            0.25f to Color(0xFF0F1014),
-            0.60f to Color(0xFF0A0B0E),
-            0.85f to Color(0xFF050507),
+            0.00f to Color(0xFF000000),
             1.00f to Color(0xFF000000)
         )
     }
@@ -186,9 +180,7 @@ fun AmbientBackground(
                 when (backgroundStyle) {
                     "solid_dark" -> {
                         drawRect(
-                            brush = Brush.verticalGradient(
-                                listOf(Color(0xFF0D0E12), Color(0xFF000000))
-                            ),
+                            color = PureBlack,
                             size = size
                         )
                     }
@@ -258,17 +250,24 @@ fun AmbientBackground(
                                 size = size
                             )
                         } else {
-                            // Dark Canvas Backdrop when no artwork bitmap
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    listOf(
-                                        Color(0xFF14161C),
-                                        Color(0xFF0B0C10),
-                                        Color(0xFF000000)
-                                    )
-                                ),
-                                size = size
-                            )
+                            if (themeId == "pure_black" || themeId.startsWith("custom_")) {
+                                drawRect(
+                                    color = PureBlack,
+                                    size = size
+                                )
+                            } else {
+                                // Dark Canvas Backdrop when no artwork bitmap
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        listOf(
+                                            Color(0xFF14161C),
+                                            Color(0xFF0B0C10),
+                                            Color(0xFF000000)
+                                        )
+                                    ),
+                                    size = size
+                                )
+                            }
                         }
                     }
                     else -> { // "sruti_gradient"
@@ -428,17 +427,10 @@ fun GlassBadge(
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(
-                brush = Brush.verticalGradient(
-                    listOf(
-                        Color(0x38FFFFFF),
-                        Color(0x18FFFFFF)
-                    )
-                )
-            )
+            .background(Color(0xFF1E2026))
             .border(
                 width = 1.dp,
-                color = Color(0x45FFFFFF),
+                color = Color(0xFF2E323D),
                 shape = CircleShape
             )
             .padding(horizontal = 14.dp, vertical = 6.dp),

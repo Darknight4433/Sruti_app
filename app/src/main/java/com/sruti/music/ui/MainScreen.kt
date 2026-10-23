@@ -47,7 +47,7 @@ import com.sruti.music.theme.NeonPurple
 import com.sruti.music.theme.PureBlack
 
 @Composable
-fun MainScreen(themeId: String = "midnight_neon") {
+fun MainScreen(themeId: String = "pure_black") {
     val context = LocalContext.current
     val prefsRepo = remember { UserPreferencesRepository(context) }
     val authRepo = remember { FirebaseAuthRepository.getInstance(context) }
@@ -55,7 +55,7 @@ fun MainScreen(themeId: String = "midnight_neon") {
     val database = remember { SrutiDatabase.getDatabase(context) }
 
     val userProfile by authRepo.userProfile.collectAsState()
-    val backgroundStyle by prefsRepo.backgroundStyle.collectAsState(initial = "dynamic")
+    val backgroundStyle by prefsRepo.backgroundStyle.collectAsState(initial = "solid_dark")
     val backgroundIntensity by prefsRepo.backgroundIntensity.collectAsState(initial = "balanced")
 
     var currentTab by remember { mutableStateOf(NavigationTab.HOME) }

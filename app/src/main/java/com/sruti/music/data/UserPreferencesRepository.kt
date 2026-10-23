@@ -107,7 +107,7 @@ class UserPreferencesRepository(private val context: Context) {
     }
 
     val backgroundStyle: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.BACKGROUND_STYLE] ?: "dynamic"
+        preferences[PreferencesKeys.BACKGROUND_STYLE] ?: "solid_dark"
     }
 
     suspend fun saveBackgroundStyle(style: String) {

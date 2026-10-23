@@ -350,33 +350,46 @@ fun ImportSongsToPlaylistDialog(
                             )
                         )
 
+                        var linkProgressText by remember { mutableStateOf<String?>(null) }
+
                         Button(
                             onClick = {
                                 val url = playlistLinkInput.trim()
                                 if (url.isBlank()) return@Button
                                 isLinkImporting = true
+                                linkProgressText = "Connecting to Spotify..."
                                 scope.launch {
-                                    val result = importer.importPlaylist(url)
+                                    val result = importer.fetchPlaylistTracks(url) { loaded, total ->
+                                        linkProgressText = if (total > 0 && total != Int.MAX_VALUE) {
+                                            "Loading: $loaded / $total tracks..."
+                                        } else {
+                                            "Loaded $loaded tracks..."
+                                        }
+                                    }
                                     isLinkImporting = false
                                     result.onSuccess { res ->
+                                        val spotifyKey = importer.extractPlaylistId(url) ?: System.currentTimeMillis().toString()
                                         val existingCount = database.musicDao().getSongsForPlaylist(playlistId).first().size
                                         val entities = res.tracks.mapIndexed { idx, track ->
                                             PlaylistSongEntity(
                                                 playlistId = playlistId,
-                                                trackId = "spotify_${res.playlistId}_$idx",
+                                                trackId = "spotify_${spotifyKey}_$idx",
                                                 title = track.title,
                                                 artist = track.artist,
                                                 album = track.album,
                                                 durationSeconds = track.durationSeconds,
                                                 mediaUriString = track.audioPreviewUrl,
-                                                artworkUriString = track.artworkUrl,
-                                                sourceId = "spotify_preview",
+                                                artworkUriString = track.artworkUrl ?: res.coverArt,
+                                                sourceId = if (track.audioPreviewUrl != null) "spotify_preview" else "",
                                                 sortOrder = existingCount + idx,
-                                                addedAt = System.currentTimeMillis()
+                                                addedAt = track.addedAtEpochMs
                                             )
                                         }
                                         database.musicDao().insertPlaylistSongs(entities)
-                                        Toast.makeText(context, "Imported ${res.tracks.size} tracks into playlist!", Toast.LENGTH_SHORT).show()
+                                        scope.launch {
+                                            importer.resolveStreamsForTracks(playlistId, res.tracks, spotifyKey)
+                                        }
+                                        Toast.makeText(context, "Added ${res.tracks.size} tracks into playlist!", Toast.LENGTH_SHORT).show()
                                         onDismiss()
                                     }.onFailure { err ->
                                         Toast.makeText(context, err.message ?: "Failed to import", Toast.LENGTH_SHORT).show()
@@ -391,7 +404,7 @@ fun ImportSongsToPlaylistDialog(
                             if (isLinkImporting) {
                                 CircularProgressIndicator(color = buttonContentColor, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Fetching playlist tracks...", color = buttonContentColor, fontSize = 13.sp)
+                                Text(linkProgressText ?: "Fetching playlist tracks...", color = buttonContentColor, fontSize = 13.sp)
                             } else {
                                 Text("Fetch & Add to Playlist", color = buttonContentColor, fontWeight = FontWeight.Bold)
                             }

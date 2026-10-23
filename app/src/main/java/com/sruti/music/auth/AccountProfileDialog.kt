@@ -251,13 +251,21 @@ fun AccountProfileDialog(
         }
     }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        val window = (androidx.compose.ui.platform.LocalView.current.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+        window?.let {
+            it.setDimAmount(0.70f)
+            it.setBackgroundDrawableResource(android.R.color.transparent)
+        }
         Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(0.92f)
                 .clip(RoundedCornerShape(26.dp))
-                .background(Color(0xFF0D0E12))
-                .border(1.dp, Color(0x35FFFFFF), RoundedCornerShape(26.dp))
+                .background(Color(0xFF000000))
+                .border(1.dp, Color(0xFF27272A), RoundedCornerShape(26.dp))
                 .padding(22.dp)
         ) {
             Column(
@@ -422,7 +430,7 @@ fun AccountProfileDialog(
 
                     Text(
                         text = activeProfile.email ?: (if (activeProfile.isAnonymous) "Guest Account" else "Connected"),
-                        color = dynamicTheme.primary,
+                        color = Color(0xFFD4D4D8),
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -456,7 +464,7 @@ fun AccountProfileDialog(
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(Color(0xFF15171C))
-                                .border(1.dp, Color(0x28FFFFFF), RoundedCornerShape(14.dp))
+                                .border(1.dp, Color(0xFF27272A), RoundedCornerShape(14.dp))
                                 .clickable {
                                     onDismiss()
                                     onOpenSettings()
@@ -834,7 +842,7 @@ private fun StatCard(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF15171C))
-            .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(16.dp))
+            .border(1.dp, Color(0xFF27272A), RoundedCornerShape(16.dp))
             .padding(10.dp),
         contentAlignment = Alignment.Center
     ) {

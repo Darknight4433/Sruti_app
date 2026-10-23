@@ -12,15 +12,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.luminance
 import com.sruti.music.playback.PlaybackStateManager
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -70,8 +78,8 @@ fun SettingsAppearanceScreen(
     val prefsRepo = remember { com.sruti.music.data.UserPreferencesRepository(context) }
     val scope = rememberCoroutineScope()
 
-    val selectedThemeId by prefsRepo.selectedThemeId.collectAsState(initial = "midnight_neon")
-    val selectedBgStyle by prefsRepo.backgroundStyle.collectAsState(initial = "dynamic")
+    val selectedThemeId by prefsRepo.selectedThemeId.collectAsState(initial = "pure_black")
+    val selectedBgStyle by prefsRepo.backgroundStyle.collectAsState(initial = "solid_dark")
     val selectedBgIntensity by prefsRepo.backgroundIntensity.collectAsState(initial = "balanced")
     val authRepo = remember { com.sruti.music.auth.FirebaseAuthRepository.getInstance(context) }
     val userProfile by authRepo.userProfile.collectAsState()
@@ -403,7 +411,7 @@ fun SettingsAppearanceScreen(
                                 checked = isDynamicActive,
                                 onCheckedChange = { isChecked ->
                                     scope.launch {
-                                        prefsRepo.saveBackgroundStyle(if (isChecked) "dynamic" else "sruti_gradient")
+                                        prefsRepo.saveBackgroundStyle(if (isChecked) "dynamic" else "solid_dark")
                                     }
                                 },
                                 colors = SwitchDefaults.colors(
@@ -705,6 +713,42 @@ fun SettingsAppearanceScreen(
                 }
             }
 
+            // 6. CUSTOM ACCENT COLOR PALETTE
+            item {
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.Palette,
+                        contentDescription = null,
+                        tint = dynamicTheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Custom Accent Palette",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Pick your own choice of accent color on top of pure pitch black OLED background.",
+                    color = GlassWhite.copy(alpha = 0.70f),
+                    fontSize = 12.5.sp,
+                    lineHeight = 16.sp
+                )
+            }
+
+            item {
+                CustomColorPickerCard(
+                    selectedThemeId = selectedThemeId,
+                    onSelectCustomColor = { hex ->
+                        scope.launch { prefsRepo.saveSelectedThemeId("custom_$hex") }
+                    }
+                )
+            }
+
             // App Attribution & Branding
             item {
                 Spacer(modifier = Modifier.height(24.dp))
@@ -744,5 +788,330 @@ fun SettingsAppearanceScreen(
             userProfile = userProfile,
             onDismiss = { showAccountDialog = false }
         )
+    }
+}
+
+data class CustomColorSwatch(val name: String, val hex: String, val color: Color)
+
+@Composable
+fun CustomColorPickerCard(
+    selectedThemeId: String,
+    onSelectCustomColor: (String) -> Unit
+) {
+    val dynamicTheme = LocalDynamicTheme.current
+    val isCustomActive = selectedThemeId.startsWith("custom_")
+    val activeHex = if (isCustomActive) selectedThemeId.removePrefix("custom_").uppercase() else ""
+
+    var spectrumHue by remember { mutableFloatStateOf(180f) }
+    var directHexInput by remember { mutableStateOf("") }
+    var inputError by remember { mutableStateOf<String?>(null) }
+
+    val spectrumColor = remember(spectrumHue) {
+        val hsv = floatArrayOf(spectrumHue, 0.95f, 1.0f)
+        Color(android.graphics.Color.HSVToColor(hsv))
+    }
+    val spectrumHex = remember(spectrumHue) {
+        val hsv = floatArrayOf(spectrumHue, 0.95f, 1.0f)
+        val argb = android.graphics.Color.HSVToColor(hsv)
+        String.format("%06X", 0xFFFFFF and argb)
+    }
+
+    val swatches = remember {
+        listOf(
+            CustomColorSwatch("Crimson", "FF3B30", Color(0xFFFF3B30)),
+            CustomColorSwatch("Sunset Coral", "FF6B6B", Color(0xFFFF6B6B)),
+            CustomColorSwatch("Orange Flame", "FF9500", Color(0xFFFF9500)),
+            CustomColorSwatch("Amber Gold", "F59E0B", Color(0xFFF59E0B)),
+            CustomColorSwatch("Electric Yellow", "FACC15", Color(0xFFFACC15)),
+            CustomColorSwatch("Acid Lime", "84CC16", Color(0xFF84CC16)),
+            CustomColorSwatch("Neon Emerald", "10B981", Color(0xFF10B981)),
+            CustomColorSwatch("Mint", "00E676", Color(0xFF00E676)),
+            CustomColorSwatch("Cyber Cyan", "00E5FF", Color(0xFF00E5FF)),
+            CustomColorSwatch("Sky Blue", "0EA5E9", Color(0xFF0EA5E9)),
+            CustomColorSwatch("Electric Blue", "38BDF8", Color(0xFF38BDF8)),
+            CustomColorSwatch("Royal Blue", "3B82F6", Color(0xFF3B82F6)),
+            CustomColorSwatch("Deep Indigo", "6366F1", Color(0xFF6366F1)),
+            CustomColorSwatch("Purple Neon", "A855F7", Color(0xFFA855F7)),
+            CustomColorSwatch("Vivid Magenta", "D946EF", Color(0xFFD946EF)),
+            CustomColorSwatch("Hot Pink", "FF2D55", Color(0xFFFF2D55)),
+            CustomColorSwatch("Flamingo", "FB7185", Color(0xFFFB7185)),
+            CustomColorSwatch("Pure White", "FFFFFF", Color(0xFFFFFFFF))
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFF12141A))
+            .border(
+                width = 1.dp,
+                color = if (isCustomActive) dynamicTheme.primary else Color(0xFF27272A),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .padding(18.dp)
+    ) {
+        Column {
+            // Header with active indicator
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(if (isCustomActive) dynamicTheme.primary else Color(0xFF71717A))
+                            .border(1.dp, Color.White.copy(alpha = 0.4f), CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (isCustomActive) "Active: #$activeHex" else "Choose Your Color",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                if (isCustomActive) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(dynamicTheme.primary.copy(alpha = 0.20f))
+                            .border(1.dp, dynamicTheme.primary, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "CUSTOM ACTIVE",
+                            color = dynamicTheme.primary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 1. Swatches Grid (arranged in rows of 6)
+            Text(
+                text = "Vibrant Color Swatches",
+                color = GlassWhite.copy(alpha = 0.75f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            swatches.chunked(6).forEach { rowSwatches ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    rowSwatches.forEach { swatch ->
+                        val isThisSelected = isCustomActive && activeHex.equals(swatch.hex, ignoreCase = true)
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(swatch.color)
+                                .border(
+                                    width = if (isThisSelected) 2.5.dp else 1.dp,
+                                    color = if (isThisSelected) Color.White else Color(0x35FFFFFF),
+                                    shape = CircleShape
+                                )
+                                .clickable {
+                                    onSelectCustomColor(swatch.hex)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isThisSelected) {
+                                val isBright = swatch.color.luminance() > 0.5f
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = "Selected",
+                                    tint = if (isBright) Color.Black else Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 2. Interactive Spectrum / Hue Slider (Full color spectrum)
+            Text(
+                text = "Spectrum Color Slider",
+                color = GlassWhite.copy(alpha = 0.75f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Rainbow gradient track behind the slider
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color.Red,
+                                Color.Yellow,
+                                Color.Green,
+                                Color.Cyan,
+                                Color.Blue,
+                                Color.Magenta,
+                                Color.Red
+                            )
+                        )
+                    )
+            )
+
+            Slider(
+                value = spectrumHue,
+                onValueChange = { spectrumHue = it },
+                valueRange = 0f..360f,
+                colors = SliderDefaults.colors(
+                    thumbColor = spectrumColor,
+                    activeTrackColor = Color.Transparent,
+                    inactiveTrackColor = Color.Transparent
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = (-6).dp)
+            )
+
+            // Live preview from spectrum slider
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = (-6).dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(spectrumColor)
+                            .border(1.5.dp, Color.White, CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "#$spectrumHex",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        onSelectCustomColor(spectrumHex)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = spectrumColor),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                    modifier = Modifier.height(34.dp)
+                ) {
+                    val isBright = spectrumColor.luminance() > 0.5f
+                    Text(
+                        text = "Apply Slider Color",
+                        color = if (isBright) Color.Black else Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 3. Direct Hex Input
+            Text(
+                text = "Or Enter Any Hex Color Code",
+                color = GlassWhite.copy(alpha = 0.75f),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = directHexInput,
+                    onValueChange = { input ->
+                        directHexInput = input.filter { it.isLetterOrDigit() || it == '#' }.take(7)
+                        inputError = null
+                    },
+                    placeholder = {
+                        Text(
+                            text = "#00E5FF",
+                            color = GlassWhite.copy(alpha = 0.4f),
+                            fontSize = 13.sp
+                        )
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = dynamicTheme.primary,
+                        unfocusedBorderColor = Color(0xFF27272A),
+                        focusedContainerColor = Color(0xFF0C0E12),
+                        unfocusedContainerColor = Color(0xFF0C0E12)
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Button(
+                    onClick = {
+                        val clean = directHexInput.removePrefix("#").trim()
+                        if (clean.length == 6) {
+                            try {
+                                android.graphics.Color.parseColor("#$clean")
+                                onSelectCustomColor(clean.uppercase())
+                                directHexInput = ""
+                                inputError = null
+                            } catch (_: Exception) {
+                                inputError = "Invalid hex code"
+                            }
+                        } else {
+                            inputError = "Enter 6-digit hex"
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E2129)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .height(48.dp)
+                        .border(1.dp, Color(0xFF3F3F46), RoundedCornerShape(12.dp))
+                ) {
+                    Text("Apply", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+
+            if (inputError != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = inputError!!,
+                    color = Color(0xFFFF5252),
+                    fontSize = 11.5.sp
+                )
+            }
+        }
     }
 }

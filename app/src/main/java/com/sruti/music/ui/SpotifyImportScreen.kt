@@ -54,6 +54,7 @@ fun SpotifyImportScreen(
 
     var playlistUrl by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var progressText by remember { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var importResult by remember { mutableStateOf<SpotifyImportResult?>(null) }
 
@@ -75,11 +76,18 @@ fun SpotifyImportScreen(
         }
 
         isLoading = true
+        progressText = "Connecting to Spotify..."
         errorMessage = null
         importResult = null
 
         scope.launch {
-            val result = importer.importPlaylist(url)
+            val result = importer.importPlaylist(url) { loaded, total ->
+                progressText = if (total > 0 && total != Int.MAX_VALUE) {
+                    "Importing tracks: $loaded / $total"
+                } else {
+                    "Imported $loaded tracks..."
+                }
+            }
             isLoading = false
             result.onSuccess { res ->
                 importResult = res
@@ -271,7 +279,12 @@ fun SpotifyImportScreen(
             if (isLoading) {
                 CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 Spacer(modifier = Modifier.width(10.dp))
-                Text("Fetching & matching tracks...", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
+                Text(
+                    text = progressText ?: "Fetching tracks...",
+                    color = Color.Black,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
             } else {
                 Text("Import Playlist", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }

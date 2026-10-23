@@ -51,13 +51,17 @@ import com.sruti.music.theme.LocalDynamicTheme
 import com.sruti.music.theme.NeonPurple
 import kotlinx.coroutines.launch
 
-enum class PlaylistSortOption(val displayName: String) {
-    CUSTOM("Custom order"),
-    TITLE("Title"),
-    ARTIST("Artist"),
-    ALBUM("Album"),
-    RECENTLY_ADDED("Recently added"),
-    DURATION("Duration")
+enum class PlaylistSortOption(val displayName: String, val shortName: String) {
+    CUSTOM("Custom order", "Custom"),
+    TITLE_AZ("Title (A → Z)", "Title A-Z"),
+    TITLE_ZA("Title (Z → A)", "Title Z-A"),
+    ARTIST_AZ("Artist (A → Z)", "Artist A-Z"),
+    ARTIST_ZA("Artist (Z → A)", "Artist Z-A"),
+    ALBUM_AZ("Album (A → Z)", "Album"),
+    RECENTLY_ADDED("Recently added", "Recently Added"),
+    OLDEST_ADDED("Oldest added", "Oldest Added"),
+    DURATION_ASC("Duration (Shortest first)", "Shortest"),
+    DURATION_DESC("Duration (Longest first)", "Longest")
 }
 
 enum class PlaylistViewMode {
@@ -84,7 +88,13 @@ fun PlaylistDetailScreen(
     var songs by remember { mutableStateOf<List<PlaylistSongEntity>>(emptyList()) }
     var sortOption by remember(playlist.id) {
         val savedName = prefs.getString("sort_${playlist.id}", PlaylistSortOption.CUSTOM.name)
-        val initial = runCatching { PlaylistSortOption.valueOf(savedName ?: "") }.getOrDefault(PlaylistSortOption.CUSTOM)
+        val initial = when (savedName) {
+            "TITLE" -> PlaylistSortOption.TITLE_AZ
+            "ARTIST" -> PlaylistSortOption.ARTIST_AZ
+            "ALBUM" -> PlaylistSortOption.ALBUM_AZ
+            "DURATION" -> PlaylistSortOption.DURATION_ASC
+            else -> runCatching { PlaylistSortOption.valueOf(savedName ?: "") }.getOrDefault(PlaylistSortOption.CUSTOM)
+        }
         mutableStateOf(initial)
     }
     var viewMode by remember { mutableStateOf(PlaylistViewMode.LIST) }
@@ -183,11 +193,15 @@ fun PlaylistDetailScreen(
     val sortedSongs = remember(songs, sortOption) {
         when (sortOption) {
             PlaylistSortOption.CUSTOM -> songs.sortedBy { it.sortOrder }
-            PlaylistSortOption.TITLE -> songs.sortedBy { it.title.lowercase() }
-            PlaylistSortOption.ARTIST -> songs.sortedBy { it.artist.lowercase() }
-            PlaylistSortOption.ALBUM -> songs.sortedBy { it.album.lowercase() }
+            PlaylistSortOption.TITLE_AZ -> songs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+            PlaylistSortOption.TITLE_ZA -> songs.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title })
+            PlaylistSortOption.ARTIST_AZ -> songs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.artist })
+            PlaylistSortOption.ARTIST_ZA -> songs.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.artist })
+            PlaylistSortOption.ALBUM_AZ -> songs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.album })
             PlaylistSortOption.RECENTLY_ADDED -> songs.sortedByDescending { it.addedAt }
-            PlaylistSortOption.DURATION -> songs.sortedBy { it.durationSeconds } // Shortest to longest
+            PlaylistSortOption.OLDEST_ADDED -> songs.sortedBy { it.addedAt }
+            PlaylistSortOption.DURATION_ASC -> songs.sortedBy { it.durationSeconds }
+            PlaylistSortOption.DURATION_DESC -> songs.sortedByDescending { it.durationSeconds }
         }
     }
 
@@ -244,7 +258,7 @@ fun PlaylistDetailScreen(
                         expanded = showSortMenu,
                         onDismissRequest = { showSortMenu = false },
                         modifier = Modifier
-                            .background(Color(0xF0120E1C))
+                            .background(Color(0xFF0F1114))
                             .border(1.dp, dynamicTheme.primary.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
                     ) {
                         Text(
@@ -883,13 +897,50 @@ fun PlaylistDetailScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "TRACKS (${sortedSongs.size}) — ${sortOption.displayName.uppercase()}",
-                color = GlassWhite.copy(alpha = 0.6f),
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "TRACKS (${sortedSongs.size})",
+                    color = GlassWhite.copy(alpha = 0.6f),
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+
+                // Interactive Sort Chip (taps open sort dropdown directly)
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF14171A))
+                        .border(1.dp, dynamicTheme.primary.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                        .clickable { showSortMenu = true }
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Sort,
+                        contentDescription = "Sort",
+                        tint = dynamicTheme.primary,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = sortOption.shortName,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Icon(
+                        imageVector = Icons.Rounded.ArrowDropDown,
+                        contentDescription = null,
+                        tint = Color(0xFFA1A1AA),
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+            }
 
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(

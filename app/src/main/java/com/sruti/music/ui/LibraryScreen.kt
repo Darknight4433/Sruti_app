@@ -51,6 +51,16 @@ import com.sruti.music.theme.PureBlack
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
+enum class LibrarySortOption(val displayName: String, val shortName: String) {
+    DEFAULT("Default order", "Default"),
+    TITLE_AZ("Title (A → Z)", "Title A-Z"),
+    TITLE_ZA("Title (Z → A)", "Title Z-A"),
+    ARTIST_AZ("Artist (A → Z)", "Artist A-Z"),
+    ARTIST_ZA("Artist (Z → A)", "Artist Z-A"),
+    DURATION_ASC("Duration (Shortest first)", "Shortest"),
+    DURATION_DESC("Duration (Longest first)", "Longest")
+}
+
 @Composable
 fun LibraryScreen(
     onTrackClick: (Track, List<Track>) -> Unit,
@@ -118,8 +128,23 @@ fun LibraryScreen(
         }
     }
 
-    // Selected Shortcut
+    // Selected Shortcut & Sort states
     var selectedShortcut by remember { mutableStateOf("Liked Songs") }
+    var librarySortOption by remember { mutableStateOf(LibrarySortOption.DEFAULT) }
+    var showLibrarySortMenu by remember { mutableStateOf(false) }
+
+    fun sortTracks(list: List<Track>, option: LibrarySortOption): List<Track> {
+        return when (option) {
+            LibrarySortOption.DEFAULT -> list
+            LibrarySortOption.TITLE_AZ -> list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+            LibrarySortOption.TITLE_ZA -> list.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title })
+            LibrarySortOption.ARTIST_AZ -> list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.artist })
+            LibrarySortOption.ARTIST_ZA -> list.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.artist })
+            LibrarySortOption.DURATION_ASC -> list.sortedBy { it.durationSeconds }
+            LibrarySortOption.DURATION_DESC -> list.sortedByDescending { it.durationSeconds }
+        }
+    }
+
     var selectedTrackForMenu by remember { mutableStateOf<Track?>(null) }
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
 
@@ -147,6 +172,18 @@ fun LibraryScreen(
         (favoriteTracks + downloadedTracks + playlistTracks).distinctBy { it.id }.take(10)
     }
     val topHistory = remember(historyTracks) { historyTracks.take(8) }
+
+    val activeTracks = remember(selectedShortcut, favoriteTracks, downloadedTracks, localTracks, historyTracks, playlistTracks, librarySortOption) {
+        val base = when (selectedShortcut) {
+            "Liked Songs" -> favoriteTracks
+            "Downloads" -> downloadedTracks
+            "Device Music" -> localTracks
+            "Recently Played" -> historyTracks
+            "Recently Added" -> (favoriteTracks + downloadedTracks + playlistTracks).distinctBy { it.id }
+            else -> emptyList()
+        }
+        sortTracks(base, librarySortOption)
+    }
 
     // Smart Random Mix: Curates tracks based on the user's listened artists and favorite genres.
     // Raw unadded device storage audio is strictly excluded.
@@ -447,17 +484,80 @@ fun LibraryScreen(
                         }
                     }
 
-                    val activeTracks = when (selectedShortcut) {
-                        "Liked Songs" -> favoriteTracks
-                        "Downloads" -> downloadedTracks
-                        "Device Music" -> localTracks
-                        "Recently Played" -> historyTracks
-                        "Recently Added" -> (favoriteTracks + downloadedTracks + playlistTracks).distinctBy { it.id }
-                        else -> emptyList()
-                    }
-
                     if (activeTracks.isNotEmpty()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Sort Button
+                            Box {
+                                IconButton(
+                                    onClick = { showLibrarySortMenu = true },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF181B1F))
+                                        .border(
+                                            1.dp,
+                                            if (librarySortOption != LibrarySortOption.DEFAULT) dynamicTheme.primary else Color(0x22FFFFFF),
+                                            CircleShape
+                                        )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Sort,
+                                        contentDescription = "Sort Tracks",
+                                        tint = if (librarySortOption != LibrarySortOption.DEFAULT) dynamicTheme.primary else Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = showLibrarySortMenu,
+                                    onDismissRequest = { showLibrarySortMenu = false },
+                                    modifier = Modifier
+                                        .background(Color(0xFF0F1114))
+                                        .border(1.dp, dynamicTheme.primary.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                                ) {
+                                    Text(
+                                        text = "Sort Tracks",
+                                        color = Color(0xFFA1A1AA),
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                                    )
+
+                                    LibrarySortOption.values().forEach { option ->
+                                        val isSelected = librarySortOption == option
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = option.displayName,
+                                                        color = if (isSelected) dynamicTheme.primary else Color.White,
+                                                        fontSize = 13.sp,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                    )
+                                                    if (isSelected) {
+                                                        Icon(
+                                                            imageVector = Icons.Rounded.Check,
+                                                            contentDescription = null,
+                                                            tint = dynamicTheme.primary,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            onClick = {
+                                                librarySortOption = option
+                                                showLibrarySortMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Shuffle Button
                             IconButton(
                                 onClick = {
                                     val shuffled = activeTracks.shuffled()
@@ -477,6 +577,7 @@ fun LibraryScreen(
                                 )
                             }
 
+                            // Play All Button
                             IconButton(
                                 onClick = {
                                     PlaybackStateManager.playTrack(activeTracks.first(), activeTracks)
@@ -501,7 +602,7 @@ fun LibraryScreen(
 
             when (selectedShortcut) {
                 "Liked Songs" -> {
-                    if (favoriteTracks.isEmpty()) {
+                    if (activeTracks.isEmpty()) {
                         item {
                             EmptyLibraryState(
                                 icon = Icons.Rounded.FavoriteBorder,
@@ -510,10 +611,10 @@ fun LibraryScreen(
                             )
                         }
                     } else {
-                        items(favoriteTracks) { track ->
+                        items(activeTracks) { track ->
                             LibraryTrackRow(
                                 track = track,
-                                onClick = { onTrackClick(track, favoriteTracks) },
+                                onClick = { onTrackClick(track, activeTracks) },
                                 onMoreClick = { selectedTrackForMenu = track }
                             )
                         }
@@ -521,7 +622,7 @@ fun LibraryScreen(
                 }
 
                 "Downloads" -> {
-                    if (downloadedTracks.isEmpty()) {
+                    if (activeTracks.isEmpty()) {
                         item {
                             EmptyLibraryState(
                                 icon = Icons.Rounded.DownloadDone,
@@ -530,10 +631,10 @@ fun LibraryScreen(
                             )
                         }
                     } else {
-                        items(downloadedTracks) { track ->
+                        items(activeTracks) { track ->
                             LibraryTrackRow(
                                 track = track,
-                                onClick = { onTrackClick(track, downloadedTracks) },
+                                onClick = { onTrackClick(track, activeTracks) },
                                 onMoreClick = { selectedTrackForMenu = track }
                             )
                         }
@@ -643,10 +744,10 @@ fun LibraryScreen(
                             Spacer(modifier = Modifier.height(10.dp))
                         }
 
-                        items(localTracks) { track ->
+                        items(activeTracks) { track ->
                             LibraryTrackRow(
                                 track = track,
-                                onClick = { onTrackClick(track, localTracks) },
+                                onClick = { onTrackClick(track, activeTracks) },
                                 onMoreClick = { selectedTrackForMenu = track }
                             )
                         }
