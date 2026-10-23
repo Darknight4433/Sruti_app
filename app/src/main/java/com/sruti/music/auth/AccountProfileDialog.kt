@@ -65,7 +65,7 @@ fun AccountProfileDialog(
             if (resId != 0) context.getString(resId) else null
         }.getOrNull()
         val saved = prefs.getString("custom_web_client_id", null)
-        mutableStateOf(saved ?: detected ?: "")
+        mutableStateOf(saved ?: detected ?: "142364649594-jp2u0lpvoog308mdc15g1ndt3gsp871a.apps.googleusercontent.com")
     }
 
     var errorMessage by remember { mutableStateOf<String?>(null) }

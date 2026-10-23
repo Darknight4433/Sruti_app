@@ -12,7 +12,20 @@
           "package_name": "com.sruti.music"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "142364649594-nof3gjc9mfffi0hf3qbfsldbi2nio3ki.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sruti.music",
+            "certificate_hash": "18a428ff96f41dab9fd37bb095ad652e71d74ed0"
+          }
+        },
+        {
+          "client_id": "142364649594-jp2u0lpvoog308mdc15g1ndt3gsp871a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCxL3DNWz1wMpGdaptj05HVTkW3YRf3Dp0"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "142364649594-jp2u0lpvoog308mdc15g1ndt3gsp871a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
