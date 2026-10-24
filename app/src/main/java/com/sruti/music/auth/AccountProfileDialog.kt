@@ -101,7 +101,7 @@ fun AccountProfileDialog(
         android.util.Log.d("GoogleSignInDebug", "accountChooserLauncher result: resultCode=${result.resultCode}, data=${result.data}")
         if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
             val selectedEmail = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
-            android.util.Log.d("GoogleSignInDebug", "AccountManager chosen account: $selectedEmail")
+            android.util.Log.d("GoogleSignInDebug", "AccountManager account selected")
             if (!selectedEmail.isNullOrBlank()) {
                 val lastAccount = runCatching { GoogleSignIn.getLastSignedInAccount(context) }.getOrNull()
                 val name = if (lastAccount?.email.equals(selectedEmail, ignoreCase = true)) lastAccount?.displayName else null
@@ -120,11 +120,11 @@ fun AccountProfileDialog(
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        android.util.Log.d("GoogleSignInDebug", "Launcher result received: resultCode=${result.resultCode}, data=${result.data}")
+        android.util.Log.d("GoogleSignInDebug", "Launcher result received: resultCode=${result.resultCode}")
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
             val account = task.getResult(ApiException::class.java)
-            android.util.Log.d("GoogleSignInDebug", "Account result: name=${account?.displayName}, email=${account?.email}, idToken=${account?.idToken != null}")
+            android.util.Log.d("GoogleSignInDebug", "Account result received: hasIdToken=${account?.idToken != null}")
             if (account != null) {
                 val idToken = account.idToken
                 if (!idToken.isNullOrBlank()) {

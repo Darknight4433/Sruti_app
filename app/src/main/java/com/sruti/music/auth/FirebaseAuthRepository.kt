@@ -36,7 +36,7 @@ class FirebaseAuthRepository(private val context: Context) {
             } else {
                 _userProfile.value = saved ?: profile
             }
-            Log.d(TAG, "Auth state updated: authenticated=${_userProfile.value.isAuthenticated}, name=${_userProfile.value.displayName}, email=${_userProfile.value.email}")
+            Log.d(TAG, "Auth state updated: authenticated=${_userProfile.value.isAuthenticated}")
         }
     }
 
@@ -125,7 +125,7 @@ class FirebaseAuthRepository(private val context: Context) {
                 .putBoolean("is_authenticated", true)
                 .apply()
             _userProfile.value = profile
-            Log.d(TAG, "signInWithGoogleProvider success: ${profile.displayName} (${profile.email}), photo=${profile.photoUrl}")
+            Log.d(TAG, "signInWithGoogleProvider success: authenticated=${profile.isAuthenticated}")
             Result.success(profile)
         } catch (e: Exception) {
             Log.e(TAG, "signInWithGoogleProvider error: ${e.message}", e)

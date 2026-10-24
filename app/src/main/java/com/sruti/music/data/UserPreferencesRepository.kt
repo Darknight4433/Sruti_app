@@ -33,31 +33,36 @@ class UserPreferencesRepository(private val context: Context) {
             val accounts = accountManager.getAccountsByType("com.google")
             if (accounts.isNotEmpty()) {
                 val email = accounts[0].name
-                val name = when {
-                    email.contains("vaishnavi", ignoreCase = true) -> "Vaishnavi L"
-                    email.contains("@") -> {
-                        val userPart = email.substringBefore("@")
-                        userPart.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-                    }
-                    else -> "Music Lover"
+                val name = if (email.contains("@")) {
+                    val userPart = email.substringBefore("@")
+                    userPart.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                } else {
+                    "Music Lover"
                 }
                 return Pair(name, email)
             }
         } catch (_: Exception) {}
-        return Pair("Vaishnavi L", "vaishnavil4433@gmail.com")
+        return Pair("Music Lover", "")
     }
 
     val userDisplayName: Flow<String> = context.dataStore.data.map { preferences ->
         val saved = preferences[PreferencesKeys.USER_DISPLAY_NAME]
-        if (saved.isNullOrBlank() || saved.equals("Crishtofer", ignoreCase = true)) {
-            getDetectedAccountInfo().first
+        if (saved.isNullOrBlank() || saved.equals("Crishtofer", ignoreCase = true) || saved.contains("vaishnavi", ignoreCase = true)) {
+            val detected = getDetectedAccountInfo().first
+            if (detected.contains("vaishnavi", ignoreCase = true)) "Music Lover" else detected
         } else {
             saved
         }
     }
 
     val userEmail: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.USER_EMAIL] ?: getDetectedAccountInfo().second
+        val saved = preferences[PreferencesKeys.USER_EMAIL]
+        if (!saved.isNullOrBlank() && !saved.contains("vaishnavi", ignoreCase = true)) {
+            saved
+        } else {
+            val detected = getDetectedAccountInfo().second
+            if (detected.contains("vaishnavi", ignoreCase = true)) "" else detected
+        }
     }
 
     suspend fun saveUserDisplayName(name: String) {
