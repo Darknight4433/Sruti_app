@@ -2,12 +2,11 @@ package com.sruti.music.online
 
 import com.sruti.music.data.Track
 import kotlin.math.abs
-import kotlin.math.max
 
 enum class MatchConfidence {
-    EXACT,      // Confident match (> 80%)
-    UNCERTAIN,  // Needs user confirmation (45% - 80%)
-    UNMATCHED   // No suitable match found (< 45%)
+    EXACT,      // Confident match (> 75%)
+    UNCERTAIN,  // Acceptable match (40% - 75%)
+    UNMATCHED   // No suitable match found (< 40%)
 }
 
 data class TrackMatch(
@@ -24,6 +23,23 @@ data class TrackMatchResult(
 )
 
 object TrackMatchingEngine {
+
+    /**
+     * Clean title by removing parenthetical noise, anime season tags, and feature tags
+     * which often cause online search APIs to return zero results.
+     */
+    fun cleanTitle(title: String): String {
+        return title
+            .replace(Regex("(?i)\\(.*?(feat|ft|originally|from|version|remix|theme|ost|ed|op|part|season).*?\\)"), "")
+            .replace(Regex("\\(.*?\\)"), "")
+            .replace(Regex("\\[.*?\\]"), "")
+            .replace(Regex("(?i)feat\\.?\\s+.*"), "")
+            .replace(Regex("(?i)ft\\.?\\s+.*"), "")
+            .replace(Regex("(?i)-\\s*original.*"), "")
+            .replace(Regex("(?i)-\\s*from.*"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
 
     fun matchTrack(
         title: String,
@@ -43,8 +59,8 @@ object TrackMatchingEngine {
                 candidate = candidate
             )
             val confidence = when {
-                score >= 0.82f -> MatchConfidence.EXACT
-                score >= 0.45f -> MatchConfidence.UNCERTAIN
+                score >= 0.72f -> MatchConfidence.EXACT
+                score >= 0.40f -> MatchConfidence.UNCERTAIN
                 else -> MatchConfidence.UNMATCHED
             }
             TrackMatch(candidate, score, confidence)
@@ -78,18 +94,18 @@ object TrackMatchingEngine {
 
         val durationScore = if (queryDuration > 0 && candidate.durationSeconds > 0) {
             val diffSec = abs(queryDuration - candidate.durationSeconds)
-            (1.0f - (diffSec / 30.0f)).coerceIn(0.0f, 1.0f)
+            (1.0f - (diffSec / 35.0f)).coerceIn(0.0f, 1.0f)
         } else {
             0.7f // Neutral when duration is unavailable
         }
 
-        return (0.50f * titleScore) + (0.35f * artistScore) + (0.15f * durationScore)
+        return (0.55f * titleScore) + (0.30f * artistScore) + (0.15f * durationScore)
     }
 
     private fun tokenSimilarity(s1: String, s2: String): Float {
         if (s1 == s2) return 1.0f
         if (s1.isEmpty() || s2.isEmpty()) return 0.0f
-        if (s1.contains(s2) || s2.contains(s1)) return 0.88f
+        if (s1.contains(s2) || s2.contains(s1)) return 0.90f
 
         val tokens1 = s1.split(" ").filter { it.isNotBlank() }.toSet()
         val tokens2 = s2.split(" ").filter { it.isNotBlank() }.toSet()
@@ -97,12 +113,28 @@ object TrackMatchingEngine {
         val intersection = tokens1.intersect(tokens2).size
         val union = tokens1.union(tokens2).size
 
-        return if (union > 0) intersection.toFloat() / union.toFloat() else 0.0f
+        val tokenScore = if (union > 0) intersection.toFloat() / union.toFloat() else 0.0f
+
+        // For non-spaced scripts (Japanese Kanji/Kana, Chinese) or single-token titles:
+        // calculate character-level intersection
+        val chars1 = s1.filter { !it.isWhitespace() }.toSet()
+        val chars2 = s2.filter { !it.isWhitespace() }.toSet()
+        val charIntersection = chars1.intersect(chars2).size
+        val charUnion = chars1.union(chars2).size
+        val charScore = if (charUnion > 0) charIntersection.toFloat() / charUnion.toFloat() else 0.0f
+
+        return maxOf(tokenScore, charScore)
     }
 
-    private fun normalize(str: String): String {
+    /**
+     * Unicode-aware normalization preserving letters and numbers in all languages
+     * (Japanese Kanji/Hiragana/Katakana, Korean Hangul, Indian scripts, Latin accents, Cyrillic).
+     */
+    fun normalize(str: String): String {
         return str.lowercase()
-            .replace(Regex("[^a-z0-9\\s]"), "")
+            .replace(Regex("[^\\p{L}\\p{N}\\s]"), " ")
+            .replace(Regex("\\s+"), " ")
             .trim()
     }
 }
+

@@ -81,6 +81,16 @@ fun AmbientBackground(
         animationSpec = tween(650),
         label = "anim_accent"
     )
+    val animTertiary by animateColorAsState(
+        targetValue = dynamicPalette.tertiaryColor,
+        animationSpec = tween(650),
+        label = "anim_tertiary"
+    )
+    val animQuaternary by animateColorAsState(
+        targetValue = dynamicPalette.quaternaryColor,
+        animationSpec = tween(650),
+        label = "anim_quaternary"
+    )
     val animDark by animateColorAsState(
         targetValue = dynamicPalette.darkBaseColor,
         animationSpec = tween(650),
@@ -186,61 +196,89 @@ fun AmbientBackground(
                     }
                     "dynamic" -> {
                         if (currentArtwork != null) {
-                            // 1. Translucent color wash from track palette over the artwork
+                            // 1. Translucent multi-color gradient wash from track palette
                             drawRect(
                                 brush = Brush.verticalGradient(
-                                    0.00f to animPrimary.copy(alpha = 0.22f),
-                                    0.30f to animSecondary.copy(alpha = 0.20f),
-                                    0.70f to Color(0xFF0A0715).copy(alpha = 0.45f),
+                                    0.00f to animPrimary.copy(alpha = 0.25f),
+                                    0.28f to animTertiary.copy(alpha = 0.22f),
+                                    0.65f to Color(0xFF0A0715).copy(alpha = 0.45f),
                                     1.00f to animDark.copy(alpha = 0.70f)
                                 ),
                                 size = size
                             )
 
-                            // 2. Soft radiant bloom with track accent
+                            // 2. Top-Left Radiant Bloom (Primary Hue)
                             drawCircle(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
-                                        animAccent.copy(alpha = 0.40f),
-                                        animSecondary.copy(alpha = 0.18f),
+                                        animPrimary.copy(alpha = 0.38f),
+                                        animSecondary.copy(alpha = 0.16f),
                                         Color.Transparent
                                     ),
-                                    center = Offset(w * 0.50f, h * 0.12f),
+                                    center = Offset(w * 0.25f, h * 0.15f),
                                     radius = w * 0.90f
                                 ),
                                 radius = w * 0.90f,
-                                center = Offset(w * 0.50f, h * 0.12f)
+                                center = Offset(w * 0.25f, h * 0.15f)
                             )
 
-                            // 3. Ambient bloom mid-right with track primary
+                            // 3. Top-Right Radiant Bloom (Contrasting Tertiary Hue for Multi-Colour Shading)
                             drawCircle(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
-                                        animPrimary.copy(alpha = 0.30f),
+                                        animTertiary.copy(alpha = 0.35f),
                                         Color.Transparent
                                     ),
-                                    center = Offset(w * 0.85f, h * 0.55f),
+                                    center = Offset(w * 0.85f, h * 0.22f),
+                                    radius = w * 0.80f
+                                ),
+                                radius = w * 0.80f,
+                                center = Offset(w * 0.85f, h * 0.22f)
+                            )
+
+                            // 4. Mid-Left Ambient Bloom (Secondary Hue)
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        animSecondary.copy(alpha = 0.28f),
+                                        Color.Transparent
+                                    ),
+                                    center = Offset(w * 0.15f, h * 0.55f),
                                     radius = w * 0.75f
                                 ),
                                 radius = w * 0.75f,
-                                center = Offset(w * 0.85f, h * 0.55f)
+                                center = Offset(w * 0.15f, h * 0.55f)
                             )
 
-                            // 4. Subtle harmonic accent in lower left
+                            // 5. Mid-Right Luminous Bloom (Quaternary Accent Hue)
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        animQuaternary.copy(alpha = 0.30f),
+                                        Color.Transparent
+                                    ),
+                                    center = Offset(w * 0.85f, h * 0.65f),
+                                    radius = w * 0.70f
+                                ),
+                                radius = w * 0.70f,
+                                center = Offset(w * 0.85f, h * 0.65f)
+                            )
+
+                            // 6. Lower Subtle Bloom (Accent Highlight)
                             drawCircle(
                                 brush = Brush.radialGradient(
                                     colors = listOf(
                                         animAccent.copy(alpha = 0.20f),
                                         Color.Transparent
                                     ),
-                                    center = Offset(w * 0.15f, h * 0.80f),
-                                    radius = w * 0.60f
+                                    center = Offset(w * 0.50f, h * 0.85f),
+                                    radius = w * 0.65f
                                 ),
-                                radius = w * 0.60f,
-                                center = Offset(w * 0.15f, h * 0.80f)
+                                radius = w * 0.65f,
+                                center = Offset(w * 0.50f, h * 0.85f)
                             )
 
-                            // 5. Protective dark translucent scrim ensuring 100% legibility
+                            // 7. Protective dark translucent scrim ensuring 100% legibility
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     0.00f to Color(0xFF000000).copy(alpha = scrimTopAlpha),

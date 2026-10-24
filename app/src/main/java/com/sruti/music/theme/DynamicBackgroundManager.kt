@@ -39,6 +39,8 @@ data class DynamicArtworkPalette(
     val primaryColor: Color = Color.White,           // Crisp white primary accent by default
     val secondaryColor: Color = Color(0xFF71717A),   // Neutral secondary ambient
     val accentColor: Color = Color(0xFFE2E8F0),      // Luminous highlight accent
+    val tertiaryColor: Color = Color(0xFF3B82F6),    // Multi-color tone: contrasting vibrant hue
+    val quaternaryColor: Color = Color(0xFFEC4899),  // Multi-color tone: radiant ambient complement
     val darkBaseColor: Color = PureBlack             // Deep pure black floor
 )
 
@@ -95,6 +97,8 @@ object DynamicBackgroundManager {
             val lightVibrant = palette.getLightVibrantColor(vibrant)
             val darkVibrant = palette.getDarkVibrantColor(0xFF381F6D.toInt())
             val muted = palette.getMutedColor(dominant)
+            val lightMuted = palette.getLightMutedColor(muted)
+            val darkMuted = palette.getDarkMutedColor(0xFF1E1B4B.toInt())
 
             // Select a radiant, high-energy primary accent for UI controls
             val primaryRaw = if (isColorBrightEnough(vibrant)) vibrant else lightVibrant
@@ -110,12 +114,16 @@ object DynamicBackgroundManager {
             val midnight = Color(0xFF0A0715)
             val secondaryColor = blendWithMidnight(Color(darkVibrant), midnight, secondaryFactor)
             val accentColor = Color(if (dominant != vibrant) dominant else lightVibrant)
+            val tertiaryColor = Color(if (lightMuted != vibrant && lightMuted != dominant) lightMuted else muted)
+            val quaternaryColor = Color(if (darkMuted != darkVibrant) darkMuted else dominant)
             val darkBaseColor = blendWithMidnight(Color(darkVibrant), Color(0xFF05030A), 0.25f)
 
             val dynamicPalette = DynamicArtworkPalette(
                 primaryColor = primaryColor,
                 secondaryColor = secondaryColor,
                 accentColor = accentColor,
+                tertiaryColor = tertiaryColor,
+                quaternaryColor = quaternaryColor,
                 darkBaseColor = darkBaseColor
             )
 

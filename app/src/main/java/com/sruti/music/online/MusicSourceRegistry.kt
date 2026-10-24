@@ -44,40 +44,45 @@ object MusicSourceRegistry {
         artist: String,
         durationSeconds: Int = 0
     ): Pair<OnlineTrack?, MatchConfidence> {
-        val searchQuery = "$title $artist".trim()
-        val candidates = searchAllSources(searchQuery)
+        val cleanT = TrackMatchingEngine.cleanTitle(title)
+        val cleanA = artist.replace(Regex("(?i)feat\\.?.*"), "").replace(",", "").trim()
 
-        if (candidates.isEmpty()) {
-            // Also try title only if compound query yielded nothing
-            val titleCandidates = searchAllSources(title)
-            if (titleCandidates.isEmpty()) {
-                return Pair(null, MatchConfidence.UNMATCHED)
-            }
-            val converted = titleCandidates.map { it.toTrack() }
-            val matchResult = TrackMatchingEngine.matchTrack(
-                title = title,
-                artist = artist,
-                durationSeconds = durationSeconds,
-                candidates = converted
-            )
-            val bestCandidate = matchResult.bestMatch?.let { match ->
-                titleCandidates.find { it.id == match.candidateTrack.id }
-            }
-            return Pair(bestCandidate, matchResult.bestMatch?.confidence ?: MatchConfidence.UNMATCHED)
+        val queryStrategies = mutableListOf<String>()
+        if (cleanT.isNotBlank() && cleanA.isNotBlank()) {
+            queryStrategies.add("$cleanT $cleanA".trim())
+        }
+        queryStrategies.add("$title $artist".trim())
+        if (cleanT.isNotBlank()) {
+            queryStrategies.add(cleanT)
+        }
+        if (title != cleanT && title.isNotBlank()) {
+            queryStrategies.add(title)
+        }
+        val firstWords = cleanT.split(" ").take(2).joinToString(" ")
+        if (firstWords.isNotBlank() && cleanA.isNotBlank()) {
+            queryStrategies.add("$firstWords $cleanA".trim())
         }
 
-        val converted = candidates.map { it.toTrack() }
-        val matchResult = TrackMatchingEngine.matchTrack(
-            title = title,
-            artist = artist,
-            durationSeconds = durationSeconds,
-            candidates = converted
-        )
-
-        val bestCandidate = matchResult.bestMatch?.let { match ->
-            candidates.find { it.id == match.candidateTrack.id }
+        for (query in queryStrategies.distinct()) {
+            if (query.isBlank()) continue
+            val candidates = searchAllSources(query)
+            if (candidates.isNotEmpty()) {
+                val converted = candidates.map { it.toTrack() }
+                val matchResult = TrackMatchingEngine.matchTrack(
+                    title = if (cleanT.isNotBlank()) cleanT else title,
+                    artist = cleanA.ifBlank { artist },
+                    durationSeconds = durationSeconds,
+                    candidates = converted
+                )
+                val bestCandidate = matchResult.bestMatch?.let { match ->
+                    candidates.find { it.id == match.candidateTrack.id }
+                }
+                if (bestCandidate != null && matchResult.bestMatch.confidence != MatchConfidence.UNMATCHED) {
+                    return Pair(bestCandidate, matchResult.bestMatch.confidence)
+                }
+            }
         }
 
-        return Pair(bestCandidate, matchResult.bestMatch?.confidence ?: MatchConfidence.UNMATCHED)
+        return Pair(null, MatchConfidence.UNMATCHED)
     }
 }
