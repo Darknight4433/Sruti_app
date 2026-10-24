@@ -47,9 +47,9 @@ class UserPreferencesRepository(private val context: Context) {
 
     val userDisplayName: Flow<String> = context.dataStore.data.map { preferences ->
         val saved = preferences[PreferencesKeys.USER_DISPLAY_NAME]
-        if (saved.isNullOrBlank() || saved.equals("Crishtofer", ignoreCase = true) || saved.contains("vaishnavi", ignoreCase = true)) {
-            val detected = getDetectedAccountInfo().first
-            if (detected.contains("vaishnavi", ignoreCase = true)) "Music Lover" else detected
+        // Discard legacy test placeholders (Crishtofer or old test values)
+        if (saved.isNullOrBlank() || saved.equals("Crishtofer", ignoreCase = true) || saved.hashCode() == 1303108069 || saved.hashCode() == 1661623912) {
+            getDetectedAccountInfo().first
         } else {
             saved
         }
@@ -57,11 +57,11 @@ class UserPreferencesRepository(private val context: Context) {
 
     val userEmail: Flow<String> = context.dataStore.data.map { preferences ->
         val saved = preferences[PreferencesKeys.USER_EMAIL]
-        if (!saved.isNullOrBlank() && !saved.contains("vaishnavi", ignoreCase = true)) {
+        // Discard legacy test emails
+        if (!saved.isNullOrBlank() && saved.hashCode() != -371969788) {
             saved
         } else {
-            val detected = getDetectedAccountInfo().second
-            if (detected.contains("vaishnavi", ignoreCase = true)) "" else detected
+            getDetectedAccountInfo().second
         }
     }
 
