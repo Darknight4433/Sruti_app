@@ -69,8 +69,8 @@ object MusicSourceRegistry {
             if (candidates.isNotEmpty()) {
                 val converted = candidates.map { it.toTrack() }
                 val matchResult = TrackMatchingEngine.matchTrack(
-                    title = if (cleanT.isNotBlank()) cleanT else title,
-                    artist = cleanA.ifBlank { artist },
+                    title = title,
+                    artist = artist,
                     durationSeconds = durationSeconds,
                     candidates = converted
                 )

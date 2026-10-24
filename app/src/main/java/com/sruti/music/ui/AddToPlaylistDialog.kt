@@ -57,7 +57,7 @@ fun AddToPlaylistDialog(
     val dynamicTheme = LocalDynamicTheme.current
 
     var playlists by remember { mutableStateOf<List<PlaylistEntity>>(emptyList()) }
-    var existingPlaylistIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var playlistExistingMap by remember { mutableStateOf<Map<Long, Set<String>>>(emptyMap()) }
     var showCreateDialog by remember { mutableStateOf(false) }
 
     val trackIds = remember(tracks) { tracks.map { it.id }.toSet() }
@@ -66,14 +66,16 @@ fun AddToPlaylistDialog(
     LaunchedEffect(trackIds) {
         val allPlaylists = database.musicDao().getAllPlaylists().first()
         playlists = allPlaylists
-        val containedSet = mutableSetOf<Long>()
+        val existingMap = mutableMapOf<Long, Set<String>>()
         for (pl in allPlaylists) {
             val songs = database.musicDao().getSongsForPlaylist(pl.id).first()
-            if (songs.any { it.trackId in trackIds }) {
-                containedSet.add(pl.id)
+            val existingSet = songs.map { it.trackId }.toSet()
+            val overlap = trackIds.intersect(existingSet)
+            if (overlap.isNotEmpty()) {
+                existingMap[pl.id] = overlap
             }
         }
-        existingPlaylistIds = containedSet
+        playlistExistingMap = existingMap
     }
 
     if (showCreateDialog) {
@@ -208,25 +210,42 @@ fun AddToPlaylistDialog(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(playlists, key = { it.id }) { pl ->
-                            val isAlreadyAdded = existingPlaylistIds.contains(pl.id)
+                            val existingInPlaylist = playlistExistingMap[pl.id] ?: emptySet()
+                            val existingCount = existingInPlaylist.size
+                            val isAllAlreadyAdded = existingCount >= tracks.size
+                            val isPartiallyAdded = existingCount in 1 until tracks.size
+                            val remainingToAdd = tracks.size - existingCount
 
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(if (isAlreadyAdded) dynamicTheme.primary.copy(alpha = 0.18f) else Color(0x15FFFFFF))
+                                    .background(
+                                        if (isAllAlreadyAdded) dynamicTheme.primary.copy(alpha = 0.16f)
+                                        else if (isPartiallyAdded) dynamicTheme.primary.copy(alpha = 0.09f)
+                                        else Color(0x15FFFFFF)
+                                    )
                                     .border(
                                         1.dp,
-                                        if (isAlreadyAdded) dynamicTheme.primary.copy(alpha = 0.5f) else Color(0x20FFFFFF),
+                                        if (isAllAlreadyAdded) dynamicTheme.primary.copy(alpha = 0.5f)
+                                        else if (isPartiallyAdded) dynamicTheme.primary.copy(alpha = 0.35f)
+                                        else Color(0x20FFFFFF),
                                         RoundedCornerShape(14.dp)
                                     )
                                     .clickable {
-                                        if (isAlreadyAdded && tracks.size == 1) {
-                                            Toast.makeText(context, "Already in '${pl.name}'", Toast.LENGTH_SHORT).show()
+                                        if (isAllAlreadyAdded) {
+                                            val msg = if (tracks.size == 1) "Already in '${pl.name}'" else "All selected songs are already in '${pl.name}'"
+                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                         } else {
                                             scope.launch {
                                                 val currentSongs = database.musicDao().getSongsForPlaylist(pl.id).first()
-                                                val entities = tracks.mapIndexed { idx, t ->
+                                                val toAddTracks = if (isPartiallyAdded) {
+                                                    tracks.filter { it.id !in existingInPlaylist }
+                                                } else {
+                                                    tracks
+                                                }
+
+                                                val entities = toAddTracks.mapIndexed { idx, t ->
                                                     PlaylistSongEntity(
                                                         playlistId = pl.id,
                                                         trackId = t.id,
@@ -243,8 +262,8 @@ fun AddToPlaylistDialog(
                                                     )
                                                 }
                                                 database.musicDao().insertPlaylistSongs(entities)
-                                                existingPlaylistIds = existingPlaylistIds + pl.id
-                                                val msg = if (entities.size == 1) "Added to '${pl.name}'!" else "Added ${entities.size} songs to '${pl.name}'!"
+                                                playlistExistingMap = playlistExistingMap + (pl.id to (existingInPlaylist + toAddTracks.map { it.id }))
+                                                val msg = if (entities.size == 1) "Added '${entities.first().title}' to '${pl.name}'!" else "Added ${entities.size} songs to '${pl.name}'!"
                                                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                                 onDismiss()
                                             }
@@ -271,24 +290,39 @@ fun AddToPlaylistDialog(
                                         fontWeight = FontWeight.SemiBold,
                                         maxLines = 1
                                     )
+                                    val statusText = when {
+                                        tracks.size == 1 && isAllAlreadyAdded -> "Already in playlist"
+                                        tracks.size == 1 -> "Tap to add"
+                                        isAllAlreadyAdded -> "All ${tracks.size} songs already in playlist"
+                                        isPartiallyAdded -> "$existingCount of ${tracks.size} already in playlist • Tap to add $remainingToAdd more"
+                                        else -> "Tap to add all ${tracks.size} songs"
+                                    }
                                     Text(
-                                        text = if (isAlreadyAdded) "Already in playlist" else "Tap to add",
-                                        color = if (isAlreadyAdded) dynamicTheme.primary else GlassWhite.copy(alpha = 0.6f),
-                                        fontSize = 11.5.sp
+                                        text = statusText,
+                                        color = if (isAllAlreadyAdded || isPartiallyAdded) dynamicTheme.primary else GlassWhite.copy(alpha = 0.6f),
+                                        fontSize = 11.sp,
+                                        maxLines = 1
                                     )
                                 }
 
-                                if (isAlreadyAdded) {
+                                if (isAllAlreadyAdded) {
                                     Icon(
                                         imageVector = Icons.Rounded.CheckCircle,
-                                        contentDescription = "Added",
+                                        contentDescription = "Already in playlist",
+                                        tint = dynamicTheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                } else if (isPartiallyAdded) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.AddCircle,
+                                        contentDescription = "Add remaining",
                                         tint = dynamicTheme.primary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 } else {
                                     Icon(
                                         imageVector = Icons.Rounded.AddCircleOutline,
-                                        contentDescription = "Add",
+                                        contentDescription = "Add all",
                                         tint = GlassWhite.copy(alpha = 0.6f),
                                         modifier = Modifier.size(20.dp)
                                     )

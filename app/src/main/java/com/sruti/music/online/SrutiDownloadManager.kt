@@ -1,8 +1,15 @@
 package com.sruti.music.online
 
+import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
+import android.media.MediaScannerConnection
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
+import androidx.core.content.FileProvider
 import com.sruti.music.R
 import com.sruti.music.data.Track
 import com.sruti.music.data.db.DownloadEntity
@@ -12,7 +19,9 @@ import kotlinx.coroutines.flow.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.FileOutputStream
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -297,6 +306,99 @@ class SrutiDownloadManager(private val context: Context) {
                     source = "download"
                 )
             }
+    }
+
+    fun getDownloadedFile(trackId: String): File? {
+        val record = _downloads.value[trackId]
+        if (record?.localFilePath != null) {
+            val file = File(record.localFilePath)
+            if (file.exists() && file.length() > 0) return file
+        }
+        val files = downloadDir.listFiles() ?: return null
+        return files.firstOrNull { it.isFile && (it.name.startsWith("${trackId}_") || it.name.startsWith(trackId)) && !it.name.endsWith(".tmp") }
+    }
+
+    /**
+     * Share downloaded audio file with any external app (WhatsApp, Telegram, Gmail, Bluetooth, Drive, etc.)
+     */
+    fun shareDownloadedTrack(context: Context, trackId: String): Result<Unit> {
+        val file = getDownloadedFile(trackId)
+            ?: return Result.failure(FileNotFoundException("Audio file is not downloaded or not found on device."))
+
+        return try {
+            val contentUri: Uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val record = _downloads.value[trackId]
+            val songName = record?.title ?: file.nameWithoutExtension
+
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "audio/*"
+                putExtra(Intent.EXTRA_STREAM, contentUri)
+                putExtra(Intent.EXTRA_SUBJECT, songName)
+                putExtra(Intent.EXTRA_TEXT, "Shared via Sruti Music 🎵: $songName")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val chooser = Intent.createChooser(shareIntent, "Share song audio: $songName").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(chooser)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sharing audio file", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Export / copy downloaded audio file into the user's permanent Device Music library (Music/Sruti)
+     */
+    fun exportTrackToDeviceMusic(context: Context, trackId: String): Result<String> {
+        val sourceFile = getDownloadedFile(trackId)
+            ?: return Result.failure(FileNotFoundException("Audio file is not downloaded yet."))
+
+        return try {
+            val record = _downloads.value[trackId]
+            val trackTitle = record?.title?.ifBlank { sourceFile.nameWithoutExtension } ?: sourceFile.nameWithoutExtension
+            val trackArtist = record?.artist?.ifBlank { "Sruti Music" } ?: "Sruti Music"
+            val cleanTitle = trackTitle.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
+            val cleanArtist = trackArtist.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
+            val fileName = "$cleanTitle - $cleanArtist.mp3"
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "audio/mpeg")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_MUSIC}/Sruti")
+                    put(MediaStore.Audio.Media.IS_MUSIC, 1)
+                    put(MediaStore.Audio.Media.TITLE, trackTitle)
+                    put(MediaStore.Audio.Media.ARTIST, trackArtist)
+                }
+                val resolver = context.contentResolver
+                val uri = resolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
+                    ?: return Result.failure(IOException("Could not create entry in Device Music folder."))
+
+                resolver.openOutputStream(uri)?.use { out ->
+                    sourceFile.inputStream().use { input ->
+                        input.copyTo(out)
+                    }
+                } ?: return Result.failure(IOException("Failed to write audio stream."))
+
+                Result.success("Exported to Music/Sruti/$fileName")
+            } else {
+                val musicDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "Sruti")
+                if (!musicDir.exists()) musicDir.mkdirs()
+                val destFile = File(musicDir, fileName)
+                sourceFile.copyTo(destFile, overwrite = true)
+                MediaScannerConnection.scanFile(context, arrayOf(destFile.absolutePath), arrayOf("audio/mpeg"), null)
+                Result.success("Exported to ${destFile.absolutePath}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error exporting audio file to device music", e)
+            Result.failure(e)
+        }
     }
 
     companion object {

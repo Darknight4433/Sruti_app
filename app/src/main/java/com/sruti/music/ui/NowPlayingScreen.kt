@@ -569,26 +569,115 @@ fun NowPlayingScreen(
     if (showRemoveDownloadConfirm) {
         AlertDialog(
             onDismissRequest = { showRemoveDownloadConfirm = false },
-            title = { Text("Remove Download?", color = Color.White) },
-            text = { Text("This will delete the offline audio file from your device.", color = GlassWhite.copy(0.7f)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        downloadManager.deleteDownloadedTrack(state.currentTrack.id)
-                        showRemoveDownloadConfirm = false
-                        android.widget.Toast.makeText(context, "Download removed", android.widget.Toast.LENGTH_SHORT).show()
+            title = {
+                Text(
+                    text = state.currentTrack.title,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    maxLines = 1
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Downloaded Audio File Options",
+                        color = Color(0xFFA1A1AA),
+                        fontSize = 12.sp
+                    )
+
+                    // Share Audio
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(dynamicTheme.primary.copy(alpha = 0.14f))
+                            .clickable {
+                                showRemoveDownloadConfirm = false
+                                val res = downloadManager.shareDownloadedTrack(context, state.currentTrack.id)
+                                if (res.isFailure) {
+                                    android.widget.Toast.makeText(context, res.exceptionOrNull()?.message ?: "Could not share audio", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Share,
+                            contentDescription = "Share",
+                            tint = dynamicTheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Send / Share Audio File", color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Send MP3 via WhatsApp, Telegram, etc.", color = Color(0xFFA1A1AA), fontSize = 11.sp)
+                        }
                     }
-                ) {
-                    Text("Remove", color = Color(0xFFFF5252))
+
+                    // Export to Device
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0x18FFFFFF))
+                            .clickable {
+                                showRemoveDownloadConfirm = false
+                                val res = downloadManager.exportTrackToDeviceMusic(context, state.currentTrack.id)
+                                if (res.isSuccess) {
+                                    android.widget.Toast.makeText(context, res.getOrNull() ?: "Exported to Music Library!", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    android.widget.Toast.makeText(context, res.exceptionOrNull()?.message ?: "Export failed", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.FolderSpecial,
+                            contentDescription = "Export",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Export to Device Music", color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Save MP3 into phone's Music folder", color = Color(0xFFA1A1AA), fontSize = 11.sp)
+                        }
+                    }
+
+                    // Delete Download
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0x15FF5252))
+                            .clickable {
+                                downloadManager.deleteDownloadedTrack(state.currentTrack.id)
+                                showRemoveDownloadConfirm = false
+                                android.widget.Toast.makeText(context, "Offline file deleted", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.DeleteOutline,
+                            contentDescription = "Delete",
+                            tint = Color(0xFFFF5252),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Delete Offline Audio File", color = Color(0xFFFF5252), fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             },
-            dismissButton = {
+            confirmButton = {
                 TextButton(onClick = { showRemoveDownloadConfirm = false }) {
-                    Text("Keep", color = Color.White)
+                    Text("Close", color = Color.White)
                 }
             },
-            containerColor = Color(0xFF1E1433),
-            shape = RoundedCornerShape(20.dp)
+            containerColor = Color(0xFF14171A),
+            shape = RoundedCornerShape(22.dp)
         )
     }
 }

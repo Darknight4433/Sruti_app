@@ -921,6 +921,12 @@ fun PlaylistDetailScreen(
                                         downloadManager.downloadTrack(toTrack(song))
                                         Toast.makeText(context, "Downloading track...", Toast.LENGTH_SHORT).show()
                                     }
+                                },
+                                onShareAudio = {
+                                    val result = downloadManager.shareDownloadedTrack(context, song.trackId)
+                                    if (result.isFailure) {
+                                        Toast.makeText(context, "Download the track first to share its audio file!", Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             )
                         } else {
@@ -1190,7 +1196,8 @@ private fun PlaylistTrackRowItem(
     onAddToQueue: () -> Unit = {},
     onAddToPlaylist: () -> Unit = {},
     onRemoveFromPlaylist: () -> Unit = {},
-    onDownload: () -> Unit = {}
+    onDownload: () -> Unit = {},
+    onShareAudio: () -> Unit = {}
 ) {
     val dynamicTheme = LocalDynamicTheme.current
     var showTrackMenu by remember { mutableStateOf(false) }
@@ -1317,6 +1324,14 @@ private fun PlaylistTrackRowItem(
                         onClick = {
                             showTrackMenu = false
                             onDownload()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Send / Share Audio File", color = Color.White, fontSize = 13.sp) },
+                        leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null, tint = dynamicTheme.primary, modifier = Modifier.size(16.dp)) },
+                        onClick = {
+                            showTrackMenu = false
+                            onShareAudio()
                         }
                     )
                     HorizontalDivider(color = Color(0x25FFFFFF), modifier = Modifier.padding(vertical = 4.dp))
@@ -1459,7 +1474,7 @@ private fun PlaylistCompactRowItem(
 }
 
 @Composable
-private fun SelectionBottomActionItem(
+private fun RowScope.SelectionBottomActionItem(
     icon: ImageVector,
     label: String,
     tint: Color,
@@ -1469,22 +1484,25 @@ private fun SelectionBottomActionItem(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .weight(1f)
             .clip(RoundedCornerShape(12.dp))
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .padding(horizontal = 2.dp, vertical = 6.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = if (enabled) tint else Color(0x35FFFFFF),
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.height(3.dp))
         Text(
             text = label,
             color = if (enabled) Color.White else Color(0x35FFFFFF),
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }

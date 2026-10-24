@@ -1038,6 +1038,33 @@ fun LibraryScreen(
                         PlaybackStateManager.toggleLikeTrack(track, track.isLiked)
                         selectedTrackForMenu = null
                     }
+
+                    // Share Downloaded Audio File
+                    val isDownloaded = downloadManager.isTrackDownloaded(track.id)
+                    if (isDownloaded || track.isLocal) {
+                        LibraryMenuOption(icon = Icons.Rounded.Share, label = "Send / Share Audio File") {
+                            selectedTrackForMenu = null
+                            val res = downloadManager.shareDownloadedTrack(context, track.id)
+                            if (res.isFailure) {
+                                Toast.makeText(context, res.exceptionOrNull()?.message ?: "Could not share audio", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        LibraryMenuOption(icon = Icons.Rounded.FolderSpecial, label = "Export to Device Music (MP3)") {
+                            selectedTrackForMenu = null
+                            val res = downloadManager.exportTrackToDeviceMusic(context, track.id)
+                            if (res.isSuccess) {
+                                Toast.makeText(context, res.getOrNull() ?: "Saved to Music Library!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, res.exceptionOrNull()?.message ?: "Export failed", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } else {
+                        LibraryMenuOption(icon = Icons.Rounded.Download, label = "Download Audio (MP3)") {
+                            downloadManager.downloadTrack(track)
+                            Toast.makeText(context, "Downloading track...", Toast.LENGTH_SHORT).show()
+                            selectedTrackForMenu = null
+                        }
+                    }
                 }
             },
             confirmButton = {
